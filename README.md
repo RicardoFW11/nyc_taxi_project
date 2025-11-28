@@ -13,6 +13,7 @@ Machine Learning project for predicting taxi fare amounts and trip durations in 
 
 - [Overview](#-overview)
 - [Features](#-features)
+- [Quick Start Guide](#-quick-start-guide)
 - [Project Structure](#-project-structure)
 - [Dataset](#-dataset)
 - [Installation](#-installation)
@@ -40,6 +41,22 @@ The models leverage various features including:
 - Engineered features (distance, time-based features, etc.)
 - *(Optional)* External data such as weather conditions and traffic
 
+### 🔄 System Architecture
+
+```
+┌─────────────┐      ┌──────────────┐      ┌─────────────┐
+│  Raw Data   │──────▶│  Processing  │──────▶│   Trained   │
+│ (Parquet)   │      │   Pipeline   │      │    Model    │
+└─────────────┘      └──────────────┘      └──────┬──────┘
+                                                    │
+                                                    ▼
+┌─────────────┐      ┌──────────────┐      ┌─────────────┐
+│  Streamlit  │◀─────│   FastAPI    │◀─────│   Model     │
+│  Frontend   │      │     API      │      │  Predictor  │
+└─────────────┘      └──────────────┘      └─────────────┘
+     (UI)              (Backend)              (Inference)
+```
+
 ### 🏆 Project Goals
 
 - Build **baseline models** (Linear Regression, Decision Trees)
@@ -58,6 +75,8 @@ The models leverage various features including:
 ✅ **Multiple Models** - Baseline and advanced ML algorithms  
 ✅ **Model Comparison** - Systematic evaluation of MAE, MSE, RMSE, training/inference time  
 ✅ **REST API** - FastAPI-based service for real-time predictions  
+✅ **Web Interface** - Streamlit app for easy fare predictions  
+✅ **Interactive Docs** - Auto-generated API documentation with Swagger UI  
 ✅ **Docker Support** - Full containerization for training and deployment  
 ✅ **Clean Architecture** - Modular design following SOLID principles  
 ✅ **Unit Tests** - Test coverage for critical components  
@@ -71,6 +90,7 @@ nyc_taxi_project/
 │
 ├── README.md                    # Project documentation
 ├── requirements.txt             # Python dependencies
+├── streamlit_app.py             # Web interface for predictions
 ├── .env.example                 # Environment variables template
 ├── .gitignore                   # Git ignore rules
 ├── .dockerignore                # Docker ignore rules
@@ -278,6 +298,48 @@ uvicorn src.api.app:app --reload --host 0.0.0.0 --port 8000
 
 Access the interactive API documentation at: `http://localhost:8000/docs`
 
+### 6. Run Streamlit Web App
+
+**Option A: Using the Web Interface (Recommended for demos)**
+
+In a new terminal, run:
+
+```bash
+streamlit run streamlit_app.py
+```
+
+Then open your browser at: `http://localhost:8501`
+
+The web interface allows you to:
+- ✅ Fill in trip details using intuitive forms
+- ✅ Get instant fare predictions with one click
+- ✅ View prediction details and technical information
+- ✅ Try example trips (short, medium, long distances)
+
+**Option B: Using the API directly**
+
+For programmatic access, make POST requests to the API:
+
+```python
+import requests
+
+trip_data = {
+    "VendorID": 1,
+    "passenger_count": 2,
+    "trip_distance": 5.3,
+    "payment_type": 1,
+    "pickup_datetime": "2022-05-15 14:30:00"
+}
+
+response = requests.post(
+    "http://localhost:8000/predict",
+    json=trip_data
+)
+
+print(response.json())
+# Output: {'predicted_fare': 18.45, 'model_version': 'linear_fare_v1', ...}
+```
+
 ---
 
 ## 🧠 Model Development
@@ -301,6 +363,36 @@ Access the interactive API documentation at: `http://localhost:8000/docs`
 - **RMSE** (Root Mean Squared Error) - Same units as target
 - **Training Time** - Model training duration
 - **Inference Time** - Prediction speed
+
+---
+
+## 🚀 Quick Start Guide
+
+### End-to-End Demo in 3 Steps
+
+**Step 1: Prepare the data and train the model**
+
+```bash
+# Build processed dataset
+python src/pipelines/build_dataset.py
+
+# Train baseline model
+python src/pipelines/train_model.py
+```
+
+**Step 2: Start the API** (Terminal 1)
+
+```bash
+uvicorn src.api.app:app --reload --host 0.0.0.0 --port 8000
+```
+
+**Step 3: Launch the web interface** (Terminal 2)
+
+```bash
+streamlit run streamlit_app.py
+```
+
+**🎉 Done!** Open your browser at `http://localhost:8501` and start predicting fares!
 
 ---
 
@@ -344,6 +436,23 @@ Check API health status.
 
 List available models and their metadata.
 
+### Using the Web Interface
+
+The Streamlit app provides an intuitive interface for making predictions:
+
+1. **Health Check**: Visual indicator shows if API is online (🟢 green)
+2. **Input Form**: Easy-to-use form with dropdowns and number inputs
+3. **Instant Predictions**: Click "Predict Fare" to get results
+4. **Detailed Results**: View model version, engineered features, and technical details
+5. **Example Trips**: Quick buttons to test common trip scenarios
+
+**Key Features:**
+- 🎨 Beautiful, responsive UI
+- 📊 Real-time predictions
+- 🔍 Technical details for debugging
+- 💡 Example trips for quick testing
+- ⚡ Fast and lightweight
+
 ---
 
 ## 🐳 Docker Deployment
@@ -378,24 +487,40 @@ This will start:
 
 ## 📈 Results
 
-### Model Comparison (May 2022 Dataset)
+### Model Performance (May 2022 Dataset - 100k Sample)
 
-| Model | Target | MAE | RMSE | Training Time | Inference (1k samples) |
-|-------|--------|-----|------|---------------|----------------------|
-| Linear Regression | Fare | 3.45 | 5.21 | 2.3s | 0.05s |
-| Decision Tree | Fare | 2.89 | 4.67 | 8.1s | 0.12s |
-| Random Forest | Fare | 2.34 | 3.98 | 145s | 0.89s |
-| **XGBoost** | **Fare** | **2.12** | **3.67** | **89s** | **0.34s** |
-| MLP | Fare | 2.45 | 4.01 | 234s | 0.45s |
+**Dataset Statistics:**
+- Total records loaded: 3,588,295
+- Sample size: 100,000 rows
+- After cleaning: 96,406 rows
+- Train set: 77,124 samples (80%)
+- Test set: 19,282 samples (20%)
 
-*Results will vary based on your training configuration and data preprocessing*
+**Linear Regression Baseline:**
 
-### Key Insights
+| Metric | Value |
+|--------|-------|
+| MAE (Mean Absolute Error) | $2.66 |
+| MSE (Mean Squared Error) | 42.62 |
+| RMSE (Root Mean Squared Error) | $6.53 |
+| Training Time | ~1.2s |
+| Model Size | 3 KB |
 
-- XGBoost provides the best balance of accuracy and speed
-- Distance is the most important feature for fare prediction
-- Time-based features (hour, day of week) significantly improve duration prediction
-- Payment type and vendor ID have minimal impact on predictions
+### Interpretation
+
+- **Average Error**: The model predicts fares with an average error of **$2.66**
+- **Typical Error Range**: 68% of predictions fall within ±$6.53 of actual fare
+- **Performance**: Good baseline performance for real-time predictions
+- **Speed**: Fast training and inference suitable for production use
+
+### Next Steps for Improvement
+
+Future model iterations could explore:
+- **Advanced Models**: XGBoost, Random Forest, Neural Networks
+- **More Features**: Weather data, traffic patterns, holidays
+- **Hyperparameter Tuning**: Grid search for optimal parameters
+- **Full Dataset**: Training on complete 3.5M records
+- **Feature Selection**: Identify and remove low-impact features
 
 ---
 

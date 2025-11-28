@@ -212,3 +212,6 @@ git.sh
 data/raw/
 data/processed/
 data/external/
+
+# Ingnore notebooks
+notebooks/
