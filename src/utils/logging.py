@@ -14,7 +14,7 @@ class LoggerFactory:
         log_level: str = "INFO",
         log_dir: str = "logs",
         console_output: bool = True,
-        file_output: bool = True,
+        file_output: bool = False,
         log_format: str = None
     ) -> logging.Logger:
         """
@@ -44,7 +44,7 @@ class LoggerFactory:
         
         # Default log format
         if log_format is None:
-            log_format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+            log_format = '%(asctime)s - %(levelname)s - %(message)s'
         
         formatter = logging.Formatter(log_format)
         

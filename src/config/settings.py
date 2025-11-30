@@ -1,42 +1,49 @@
-# Parámetros de preprocesamiento basados en hallazgos del EDA
+#Preprocesing Parameters based on EDA findings
 PREPROCESSING_PARAMS = {
-    # Filtros temporales
+    # Temporal filters
     'target_year': 2022,
     'target_month': 5,
     'min_trip_duration_minutes': 1,
-    'max_trip_duration_minutes': 180,  # 3 horas
+    'max_trip_duration_minutes': 180,  # 3 hours
     
-    # Filtros de pasajeros
+    # Passenger filters
     'min_passengers': 1,
     'max_passengers': 6,
     
-    # Filtros monetarios
+    # Monetary filters
     'min_fare_amount': 0.01,
     'min_trip_distance': 0.01,
     
-    # Outliers (basado en hallazgos EDA: 10-12% outliers por IQR)
+    # Outliers (based on EDA findings: 10-12% outliers by IQR)
     'outlier_method': 'iqr',
     'outlier_factor': 1.5,
     'remove_extreme_outliers': True,
     
-    # Validación de campos categóricos
-    'valid_vendor_ids': [1, 2, 6, 7],  # Según diccionario TLC
+    # Validation of categorical fields
+    'valid_vendor_ids': [1, 2, 6, 7],  # According to TLC dictionary
     'valid_ratecode_ids': [1, 2, 3, 4, 5, 6, 99],
     'valid_payment_types': [0, 1, 2, 3, 4, 5, 6],
     'valid_store_flags': ['Y', 'N'],
     
-    # Límites para campos específicos (basado en percentiles del EDA)
-    'max_fare_amount_percentile': 0.99,  # Filtrar 1% superior
+    # LLimits for specific fields (based on EDA percentiles)
+    'max_fare_amount_percentile': 0.99,  # Filter top 1%
     'max_total_amount_percentile': 0.99,
     'max_trip_distance_percentile': 0.99,
     
-    # Features a crear
+    # Features to create
     'create_temporal_features': True,
     'create_ratio_features': True,
     'create_categorical_indicators': True,
     'create_distance_categories': True,
     
-    # Año y mes de los datos
+    # Year and month of the data
     'data_year': 2022,
     'data_month': 5,
 }
+
+# General parameters
+RANDOM_STATE = 42
+TEST_SIZE = 0.2
+VAL_SIZE = 0.1
+TRAIN_SIZE = 0.7
+LOG_LEVEL = "DEBUG"

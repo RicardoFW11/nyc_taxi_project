@@ -11,72 +11,73 @@ import warnings
 
 from utils.logging import get_full_logger
 from config.paths import LOGGER_NAME, PROCESSED_DATA, FEATURE_DATA
+from config.settings import RANDOM_STATE, LOG_LEVEL
 
 warnings.filterwarnings('ignore')
-logger = get_full_logger(name=LOGGER_NAME, log_level="INFO")
+logger = get_full_logger(name=LOGGER_NAME, log_level=LOG_LEVEL)
 
 class TaxiFeatureEngineer:
     """
-    Clase para crear características de machine learning a partir de datos limpios de NYC Taxi.
+    Class for creating machine learning features from clean NYC Taxi data.
     
-    Responsabilidades:
-    - Crear variables temporales
-    - Generar ratios y métricas derivadas
-    - Categorizar variables continuas
-    - Crear variables dummy/one-hot encoding
-    - Normalizar/escalar características
+    Responsibilities:
+    - Create temporal variables
+    - Generate ratios and derived metrics
+    - Categorize continuous variables
+    - Create dummy/one-hot encoding variables
+    - Normalize/scale features
     """
     
     def __init__(self, processed_data_path: str = None):
         """
-        Inicializar el ingeniero de características.
+        Initialize the feature engineer.
         
         Args:
-            processed_data_path: Ruta al archivo de datos procesados/limpios
+            processed_data_path: Path to the processed/clean data file
         """
         self.processed_data_path = processed_data_path or PROCESSED_DATA
         self.df = None
         self.feature_stats = {}
         
-        logger.info("TaxiFeatureEngineer inicializado")
+        logger.info("TaxiFeatureEngineer initialized")
     
     def load_processed_data(self) -> pd.DataFrame:
-        """Cargar datos procesados/limpios desde archivo parquet."""
+        """Load processed/clean data from parquet file."""
         try:
-            logger.info(f"Cargando datos procesados desde: {self.processed_data_path}")
+            logger.info(f"Loading processed data from: {self.processed_data_path}")
             self.df = pd.read_parquet(self.processed_data_path)
-            logger.info(f"Datos cargados: {self.df.shape[0]:,} filas, {self.df.shape[1]} columnas")
+            logger.info(f"Data loaded: {self.df.shape[0]:,} rows, {self.df.shape[1]} columns")
             return self.df
         except Exception as e:
-            logger.error(f"Error cargando datos procesados: {e}")
+            logger.error(f"Error loading processed data: {e}")
             raise
     
     def create_temporal_features(self) -> pd.DataFrame:
         """
-        Crear características temporales avanzadas.
+        Create advanced temporal features.
         """
-        logger.info("Creando características temporales...")
+        logger.info("Creating temporal features...")
         
         if 'tpep_pickup_datetime' in self.df.columns:
-            # Features temporales básicas
+            # Basic temporal features
             self.df['pickup_hour'] = self.df['tpep_pickup_datetime'].dt.hour
             self.df['pickup_day_of_week'] = self.df['tpep_pickup_datetime'].dt.dayofweek
             self.df['pickup_day'] = self.df['tpep_pickup_datetime'].dt.day
             self.df['pickup_month'] = self.df['tpep_pickup_datetime'].dt.month
             
-            # Características de día de la semana
+            # Day of week features
             self.df['is_weekend'] = (self.df['pickup_day_of_week'].isin([5, 6])).astype(int)
             self.df['is_monday'] = (self.df['pickup_day_of_week'] == 0).astype(int)
             self.df['is_friday'] = (self.df['pickup_day_of_week'] == 4).astype(int)
             
-            # Categorías de tiempo del día
+            # Time of day categories
             self.df['time_of_day'] = pd.cut(
                 self.df['pickup_hour'],
                 bins=[-1, 6, 12, 18, 24],
                 labels=['Night', 'Morning', 'Afternoon', 'Evening']
             )
             
-            # Horas pico detalladas
+            # Detailed rush hours
             morning_rush = (self.df['pickup_hour'].between(7, 9))
             evening_rush = (self.df['pickup_hour'].between(17, 19))
             
@@ -84,7 +85,7 @@ class TaxiFeatureEngineer:
             self.df['is_morning_rush'] = morning_rush.astype(int)
             self.df['is_evening_rush'] = evening_rush.astype(int)
             
-            # Categorías horarias más específicas
+            # More specific time categories
             conditions = [
                 self.df['pickup_hour'].between(0, 5),   # Late night
                 self.df['pickup_hour'].between(6, 11),  # Morning
@@ -101,82 +102,82 @@ class TaxiFeatureEngineer:
                     (self.df['tpep_dropoff_datetime'] - self.df['tpep_pickup_datetime']).dt.total_seconds() / 60
                 )
         
-        # Duración del viaje si existe
+        # Trip duration if exists
         if 'trip_duration_minutes' in self.df.columns:
-            # Categorizar duración
+            # Categorize duration
             self.df['duration_category'] = pd.cut(
                 self.df['trip_duration_minutes'],
                 bins=[0, 5, 15, 30, 60, float('inf')],
                 labels=['Very_Short', 'Short', 'Medium', 'Long', 'Very_Long']
             )
             
-            # Indicadores de duración
+            # Duration indicators
             self.df['is_very_short_trip'] = (self.df['trip_duration_minutes'] <= 5).astype(int)
             self.df['is_long_trip'] = (self.df['trip_duration_minutes'] >= 30).astype(int)
         
-        logger.info("Características temporales creadas")
+        logger.info("Temporal features created")
         return self.df
     
     def create_distance_features(self) -> pd.DataFrame:
         """
-        Crear características relacionadas con distancia.
+        Create distance-related features.
         """
-        logger.info("Creando características de distancia...")
+        logger.info("Creating distance features...")
         
         if 'trip_distance' in self.df.columns:
-            # Categorización de distancia
+            # Distance categorization
             self.df['distance_category'] = pd.cut(
                 self.df['trip_distance'],
                 bins=[0, 1, 3, 7, 15, float('inf')],
                 labels=['Very_Short', 'Short', 'Medium', 'Long', 'Very_Long']
             )
             
-            # Indicadores de distancia
+            # Distance indicators
             self.df['is_short_distance'] = (self.df['trip_distance'] <= 1).astype(int)
             self.df['is_medium_distance'] = (self.df['trip_distance'].between(1, 5)).astype(int)
             self.df['is_long_distance'] = (self.df['trip_distance'] >= 10).astype(int)
             
-            # Distancia logarítmica para normalizar distribución
+            # Logarithmic distance to normalize distribution
             self.df['log_trip_distance'] = np.log1p(self.df['trip_distance'])
         
-        logger.info("Características de distancia creadas")
+        logger.info("Distance features created")
         return self.df
     
     def create_fare_features(self) -> pd.DataFrame:
         """
-        Crear características relacionadas con tarifas y pagos.
+        Create fare and payment-related features.
         """
-        logger.info("Creando características de tarifas...")
+        logger.info("Creating fare features...")
         
-        # Ratios y métricas derivadas
+        # Ratios and derived metrics
         if all(col in self.df.columns for col in ['tip_amount', 'fare_amount']):
-            # Porcentaje de propina
+            # Tip percentage
             self.df['tip_percentage'] = np.where(
                 self.df['fare_amount'] > 0,
                 (self.df['tip_amount'] / self.df['fare_amount']) * 100,
                 0
             )
             
-            # Categorizar propinas
+            # Categorize tips
             self.df['tip_category'] = pd.cut(
                 self.df['tip_percentage'],
                 bins=[-0.1, 0, 10, 20, 30, float('inf')],
                 labels=['No_Tip', 'Low_Tip', 'Medium_Tip', 'High_Tip', 'Very_High_Tip']
             )
             
-            # Indicadores de propina
+            # Tip indicators
             self.df['has_tip'] = (self.df['tip_amount'] > 0).astype(int)
             self.df['generous_tipper'] = (self.df['tip_percentage'] >= 20).astype(int)
         
         if all(col in self.df.columns for col in ['fare_amount', 'trip_distance']):
-            # Tarifa por milla
+            # Fare per mile
             self.df['fare_per_mile'] = np.where(
                 self.df['trip_distance'] > 0,
                 self.df['fare_amount'] / self.df['trip_distance'],
                 0
             )
             
-            # Categorizar tarifa por milla
+            # Categorize fare per mile
             self.df['fare_per_mile_category'] = pd.cut(
                 self.df['fare_per_mile'],
                 bins=[0, 3, 6, 10, float('inf')],
@@ -184,64 +185,64 @@ class TaxiFeatureEngineer:
             )
         
         if 'total_amount' in self.df.columns:
-            # Categorizar monto total
+            # Categorize total amount
             self.df['total_amount_category'] = pd.cut(
                 self.df['total_amount'],
                 bins=[0, 10, 25, 50, 100, float('inf')],
                 labels=['Low', 'Medium', 'High', 'Very_High', 'Extreme']
             )
             
-            # Transformación logarítmica para normalizar
+            # Logarithmic transformation to normalize
             self.df['log_total_amount'] = np.log1p(self.df['total_amount'])
         
         if 'fare_amount' in self.df.columns:
             self.df['log_fare_amount'] = np.log1p(self.df['fare_amount'])
         
-        logger.info("Características de tarifas creadas")
+        logger.info("Fare features created")
         return self.df
     
     def create_speed_features(self) -> pd.DataFrame:
         """
-        Crear características de velocidad y eficiencia.
+        Create speed and efficiency features.
         """
-        logger.info("Creando características de velocidad...")
+        logger.info("Creating speed features...")
         
         if all(col in self.df.columns for col in ['trip_distance', 'trip_duration_minutes']):
-            # Velocidad promedio
+            # Average speed
             self.df['avg_speed_mph'] = np.where(
                 self.df['trip_duration_minutes'] > 0,
                 (self.df['trip_distance'] / (self.df['trip_duration_minutes'] / 60)),
                 0
             )
             
-            # Categorizar velocidad
+            # Categorize speed
             self.df['speed_category'] = pd.cut(
                 self.df['avg_speed_mph'],
                 bins=[0, 5, 15, 25, 40, float('inf')],
                 labels=['Very_Slow', 'Slow', 'Medium', 'Fast', 'Very_Fast']
             )
             
-            # Indicadores de velocidad
+            # Speed indicators
             self.df['is_slow_trip'] = (self.df['avg_speed_mph'] <= 10).astype(int)
             self.df['is_fast_trip'] = (self.df['avg_speed_mph'] >= 30).astype(int)
             
-            # Eficiencia del viaje (velocidad vs distancia)
+            # Trip efficiency (speed vs distance)
             self.df['trip_efficiency'] = np.where(
                 self.df['trip_distance'] > 0,
                 self.df['avg_speed_mph'] / self.df['trip_distance'],
                 0
             )
         
-        logger.info("Características de velocidad creadas")
+        logger.info("Speed features created")
         return self.df
     
     def create_categorical_features(self) -> pd.DataFrame:
         """
-        Crear y mejorar características categóricas.
+        Create and enhance categorical features.
         """
-        logger.info("Creando características categóricas...")
+        logger.info("Creating categorical features...")
         
-        # Mapeos para interpretabilidad
+        # Mappings for interpretability
         vendor_mapping = {
             1: "Creative_Mobile", 2: "Curb_Mobility", 
             6: "Myle_Technologies", 7: "Helix"
@@ -258,14 +259,14 @@ class TaxiFeatureEngineer:
             3: "No_Charge", 4: "Dispute", 5: "Unknown", 6: "Voided"
         }
         
-        # Aplicar mapeos
+        # Apply mappings
         if 'VendorID' in self.df.columns:
             self.df['vendor_name'] = self.df['VendorID'].map(vendor_mapping)
             
         if 'RatecodeID' in self.df.columns:
             self.df['ratecode_name'] = self.df['RatecodeID'].map(ratecode_mapping)
             
-            # Indicadores específicos
+            # Specific indicators
             self.df['is_airport_trip'] = self.df['RatecodeID'].isin([2, 3]).astype(int)
             self.df['is_jfk_trip'] = (self.df['RatecodeID'] == 2).astype(int)
             self.df['is_newark_trip'] = (self.df['RatecodeID'] == 3).astype(int)
@@ -274,13 +275,13 @@ class TaxiFeatureEngineer:
         if 'payment_type' in self.df.columns:
             self.df['payment_name'] = self.df['payment_type'].map(payment_mapping)
             
-            # Indicadores de pago
+            # Payment indicators
             self.df['is_credit_card'] = (self.df['payment_type'] == 1).astype(int)
             self.df['is_cash_payment'] = (self.df['payment_type'] == 2).astype(int)
             self.df['is_no_charge'] = (self.df['payment_type'] == 3).astype(int)
         
         if 'passenger_count' in self.df.columns:
-            # Categorizar número de pasajeros
+            # Categorize passenger count
             self.df['passenger_category'] = pd.cut(
                 self.df['passenger_count'],
                 bins=[0, 1, 2, 4, float('inf')],
@@ -293,69 +294,69 @@ class TaxiFeatureEngineer:
         if 'store_and_fwd_flag' in self.df.columns:
             self.df['is_store_forward'] = (self.df['store_and_fwd_flag'] == 'Y').astype(int)
         
-        logger.info("Características categóricas creadas")
+        logger.info("Categorical features created")
         return self.df
     
     def create_location_features(self) -> pd.DataFrame:
         """
-        Crear características relacionadas con ubicaciones.
+        Create location-related features.
         """
-        logger.info("Creando características de ubicación...")
+        logger.info("Creating location features...")
         
         if all(col in self.df.columns for col in ['PULocationID', 'DOLocationID']):
-            # Indicador de viaje circular (mismo pickup y dropoff)
+            # Circular trip indicator (same pickup and dropoff)
             self.df['is_round_trip'] = (
                 self.df['PULocationID'] == self.df['DOLocationID']
             ).astype(int)
             
-            # Crear identificador único de ruta
+            # Create unique route identifier
             self.df['route_id'] = (
                 self.df['PULocationID'].astype(str) + '_to_' + 
                 self.df['DOLocationID'].astype(str)
             )
             
-            # Popularidad de ubicaciones (frecuencia)
+            # Popularity of locations (frequency)
             pickup_counts = self.df['PULocationID'].value_counts()
             dropoff_counts = self.df['DOLocationID'].value_counts()
             
             self.df['pickup_popularity'] = self.df['PULocationID'].map(pickup_counts)
             self.df['dropoff_popularity'] = self.df['DOLocationID'].map(dropoff_counts)
             
-            # Categorizar popularidad
+            # Categorize popularity
             self.df['pickup_popularity_category'] = pd.cut(
                 self.df['pickup_popularity'],
                 bins=[0, 100, 500, 2000, float('inf')],
                 labels=['Rare', 'Uncommon', 'Common', 'Very_Common']
             )
         
-        logger.info("Características de ubicación creadas")
+        logger.info("Location features created")
         return self.df
     
     def create_interaction_features(self) -> pd.DataFrame:
         """
-        Crear características de interacción entre variables.
+        Create interaction features between variables.
         """
-        logger.info("Creando características de interacción...")
+        logger.info("Creating interaction features...")
         
-        # Interacciones temporales
+        # Temporal interactions
         if all(col in self.df.columns for col in ['is_weekend', 'is_rush_hour']):
             self.df['weekend_rush'] = (
                 self.df['is_weekend'] & self.df['is_rush_hour']
             ).astype(int)
         
-        # Interacciones de pago y propina
+        # Payment and tip interactions
         if all(col in self.df.columns for col in ['is_credit_card', 'has_tip']):
             self.df['credit_card_with_tip'] = (
                 self.df['is_credit_card'] & self.df['has_tip']
             ).astype(int)
         
-        # Interacciones de distancia y tiempo
+        # Distance and time interactions
         if all(col in self.df.columns for col in ['is_long_distance', 'is_long_trip']):
             self.df['long_distance_long_time'] = (
                 self.df['is_long_distance'] & self.df['is_long_trip']
             ).astype(int)
         
-        # Interacciones de aeropuerto y tiempo
+        # Airport and time interactions
         if all(col in self.df.columns for col in ['is_airport_trip', 'time_of_day']):
             self.df['airport_morning'] = (
                 self.df['is_airport_trip'] & (self.df['time_of_day'] == 'Morning')
@@ -365,16 +366,16 @@ class TaxiFeatureEngineer:
                 self.df['is_airport_trip'] & (self.df['time_of_day'] == 'Evening')
             ).astype(int)
         
-        logger.info("Características de interacción creadas")
+        logger.info("Interaction features created")
         return self.df
     
     def create_statistical_features(self) -> pd.DataFrame:
         """
-        Crear características estadísticas agregadas.
+        Create aggregated statistical features.
         """
-        logger.info("Creando características estadísticas...")
+        logger.info("Creating statistical features...")
         
-        # Agregaciones por hora del día
+        # Aggregations by hour of day
         if 'pickup_hour' in self.df.columns:
             hourly_stats = self.df.groupby('pickup_hour').agg({
                 'fare_amount': ['mean', 'std'],
@@ -391,7 +392,7 @@ class TaxiFeatureEngineer:
                     hourly_stats[col]
                 )
         
-        # Agregaciones por día de la semana
+        # Aggregations by day of week
         if 'pickup_day_of_week' in self.df.columns:
             daily_stats = self.df.groupby('pickup_day_of_week').agg({
                 'fare_amount': 'mean',
@@ -404,16 +405,16 @@ class TaxiFeatureEngineer:
                     daily_stats[col]
                 )
         
-        logger.info("Características estadísticas creadas")
+        logger.info("Statistical features created")
         return self.df
     
     def encode_categorical_variables(self) -> pd.DataFrame:
         """
-        Aplicar encoding a variables categóricas para ML.
+        Apply encoding to categorical variables for ML.
         """
-        logger.info("Aplicando encoding a variables categóricas...")
+        logger.info("Applying encoding to categorical variables...")
         
-        # Variables categóricas ordinales (mantener como numéricas)
+        # Ordinal categorical variables (keep as numeric)
         ordinal_mappings = {
             'distance_category': {'Very_Short': 1, 'Short': 2, 'Medium': 3, 'Long': 4, 'Very_Long': 5},
             'duration_category': {'Very_Short': 1, 'Short': 2, 'Medium': 3, 'Long': 4, 'Very_Long': 5},
@@ -426,34 +427,35 @@ class TaxiFeatureEngineer:
             if col in self.df.columns:
                 self.df[f'{col}_encoded'] = self.df[col].map(mapping)
         
-        # One-hot encoding para variables categóricas nominales
+        # One-hot encoding for nominal categorical variables
         nominal_columns = [
             'time_of_day', 'detailed_time_category', 'vendor_name', 
             'ratecode_name', 'payment_name', 'passenger_category'
         ]
         
         for col in nominal_columns:
-            if col in self.df.columns:
-                # Crear dummies
-                dummies = pd.get_dummies(self.df[col], prefix=col, drop_first=True)
-                self.df = pd.concat([self.df, dummies], axis=1)
+            if col not in self.df.columns:
+                continue
+            # Create dummies
+            dummies = pd.get_dummies(self.df[col], prefix=col, drop_first=True)
+            self.df = pd.concat([self.df, dummies], axis=1)
         
-        logger.info("Encoding de variables categóricas completado")
+        logger.info("Categorical variable encoding completed")
         return self.df
     
     def create_feature_summary(self) -> dict:
         """
-        Crear resumen de las características generadas.
+        Create summary of generated features.
         """
         if self.df is None:
             return {}
         
-        # Categorizar tipos de columnas
+        # Categorize column types
         numeric_cols = self.df.select_dtypes(include=[np.number]).columns.tolist()
         categorical_cols = self.df.select_dtypes(include=['object', 'category']).columns.tolist()
         datetime_cols = self.df.select_dtypes(include=['datetime']).columns.tolist()
         
-        # Binary/indicator columns (solo 0s y 1s)
+        # Binary/indicator columns (only 0s and 1s)
         binary_cols = []
         for col in numeric_cols:
             if set(self.df[col].dropna().unique()).issubset({0, 1}):
@@ -479,109 +481,109 @@ class TaxiFeatureEngineer:
     
     def feature_engineering_pipeline(self) -> pd.DataFrame:
         """
-        Ejecutar pipeline completo de ingeniería de características.
+        Execute complete feature engineering pipeline.
         
         Returns:
-            pd.DataFrame: Dataset con características para ML
+            pd.DataFrame: Dataset with features for ML
         """
-        logger.info("=== INICIANDO PIPELINE DE INGENIERÍA DE CARACTERÍSTICAS ===")
+        logger.info("=== STARTING FEATURE ENGINEERING PIPELINE ===")
         
-        # 1. Cargar datos procesados
+        # 1. Load processed data
         self.load_processed_data()
         
-        # 2. Crear características temporales
+        # 2. Create temporal features
         self.create_temporal_features()
         
-        # 3. Crear características de distancia
+        # 3. Create distance features
         self.create_distance_features()
         
-        # 4. Crear características de tarifas
+        # 4. Create fare features
         self.create_fare_features()
         
-        # 5. Crear características de velocidad
+        # 5. Create speed features
         self.create_speed_features()
         
-        # 6. Crear características categóricas
+        # 6. Create categorical features
         self.create_categorical_features()
         
-        # 7. Crear características de ubicación
+        # 7. Create location features
         self.create_location_features()
         
-        # 8. Crear características de interacción
+        # 8. Create interaction features
         self.create_interaction_features()
         
-        # 9. Crear características estadísticas
+        # 9. Create statistical features
         self.create_statistical_features()
         
-        # 10. Encoding de variables categóricas
+        # 10. Encode categorical variables
         self.encode_categorical_variables()
         
-        # Resumen final
+        # Final summary
         summary = self.create_feature_summary()
-        logger.info("=== INGENIERÍA DE CARACTERÍSTICAS COMPLETADA ===")
-        logger.info(f"Características totales: {summary['total_columns']}")
-        logger.info(f"Variables numéricas: {summary['numeric_columns']}")
-        logger.info(f"Variables categóricas: {summary['categorical_columns']}")
-        logger.info(f"Indicadores binarios: {summary['binary_indicators']}")
+        logger.info("=== FEATURE ENGINEERING COMPLETED ===")
+        logger.info(f"Total features: {summary['total_columns']}")
+        logger.info(f"Numeric variables: {summary['numeric_columns']}")
+        logger.info(f"Categorical variables: {summary['categorical_columns']}")
+        logger.info(f"Binary indicators: {summary['binary_indicators']}")
         
         self.feature_stats = summary
         return self.df
     
     def save_feature_data(self, output_path: str = None) -> str:
         """
-        Guardar dataset con características en archivo parquet.
+        Save dataset with features to a parquet file.
         
         Args:
-            output_path: Ruta de salida. Si None, usa FEATURE_DATA de config.
+            output_path: Output path. If None, uses FEATURE_DATA from config.
             
         Returns:
-            str: Ruta del archivo guardado
+            str: Path of the saved file
         """
         if self.df is None:
-            raise ValueError("No hay datos con características para guardar.")
+            raise ValueError("No feature data to save.")
         
         output_path = output_path or FEATURE_DATA
         
-        # Crear directorio si no existe
+        # Create directory if it doesn't exist
         output_dir = Path(output_path).parent
         output_dir.mkdir(parents=True, exist_ok=True)
         
-        # Guardar datos
+        # Save data
         self.df.to_parquet(output_path, index=False, engine='pyarrow', compression='gzip')
-        logger.info(f"Dataset con características guardado en: {output_path}")
-        logger.info(f"Tamaño del archivo: {Path(output_path).stat().st_size / 1024**2:.2f} MB")
+        logger.info(f"Feature dataset saved at: {output_path}")
+        logger.info(f"File size: {Path(output_path).stat().st_size / 1024**2:.2f} MB")
         
         return output_path
 
 
 def main():
-    """Función principal para ejecutar la ingeniería de características."""
+    """Main function to run feature engineering."""
     try:
-        # Inicializar ingeniero de características
+        # Initialize feature engineer
         feature_engineer = TaxiFeatureEngineer()
         
-        # Ejecutar pipeline completo
+        # Run full pipeline
         feature_data = feature_engineer.feature_engineering_pipeline()
         
-        # Guardar datos con características
+        # Save feature data
         output_path = feature_engineer.save_feature_data()
         
-        # Mostrar resumen
+        # Show summary
         summary = feature_engineer.feature_stats
         print("\n" + "="*60)
-        print("RESUMEN DE INGENIERÍA DE CARACTERÍSTICAS")
+        print("FEATURE ENGINEERING SUMMARY")
         print("="*60)
-        print(f"Total de características: {summary['total_columns']}")
-        print(f"Variables numéricas: {summary['numeric_columns']}")
-        print(f"Variables categóricas: {summary['categorical_columns']}")
-        print(f"Indicadores binarios: {summary['binary_indicators']}")
-        print(f"Tamaño del dataset: {summary['data_shape']}")
-        print(f"Archivo guardado: {output_path}")
+        print(f"Total features: {summary['total_columns']}")
+        print(f"Numeric variables: {summary['numeric_columns']}")
+        print(f"Categorical variables: {summary['categorical_columns']}")
+        print(f"Binary indicators: {summary['binary_indicators']}")
+        print(f"Dataset size: {summary['data_shape']}")
+        print(f"Saved file: {output_path}")
         
         return feature_data, summary
         
     except Exception as e:
-        logger.error(f"Error en ingeniería de características: {e}")
+        logger.error(f"Error in feature engineering: {e}")
         raise
 
 

@@ -1,6 +1,6 @@
 """
-Módulo de preprocesamiento de datos para NYC Yellow Taxi Trip Records.
-Basado en hallazgos del EDA realizado en 01_eda.ipynb.
+Module for preprocessing NYC Yellow Taxi Trip Records data.
+Based on findings from the EDA conducted in 01_eda.ipynb.
 """
 
 import pandas as pd
@@ -11,47 +11,46 @@ from pathlib import Path
 import sys
 import os
 
-# Agregar src al path para imports relativos
+# Add src to path for relative imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from utils.logging import get_full_logger
 from config.paths import LOGGER_NAME, RAW_DATA, PROCESSED_DATA
-from config.settings import PREPROCESSING_PARAMS
+from config.settings import PREPROCESSING_PARAMS, LOG_LEVEL
 
 warnings.filterwarnings('ignore')
-logger = get_full_logger(name=LOGGER_NAME, log_level="DEBUG")
-
+logger = get_full_logger(name=LOGGER_NAME, log_level=LOG_LEVEL)
 
 class TaxiDataPreprocessor:
     """
-    Clase para limpiar los datos de NYC Yellow Taxi basado en hallazgos del EDA.
+    Class for cleaning NYC Yellow Taxi data based on findings from the EDA.
     
-    Responsabilidades:
-    - Validar estructura básica del dataset
-    - Limpiar campos temporales (fechas inválidas, duraciones anómalas)
-    - Limpiar campos categóricos (valores inválidos, outliers)
-    - Limpiar campos monetarios (valores negativos, discrepancias)
-    - Validar y corregir total_amount
-    - Remover outliers extremos
+    Responsibilities:
+    - Validate basic dataset structure
+    - Clean temporal fields (invalid dates, anomalous durations)
+    - Clean categorical fields (invalid values, outliers)
+    - Clean monetary fields (negative values, discrepancies)
+    - Validate and correct total_amount
+    - Remove extreme outliers
     
-    Issues críticos identificados en EDA:
-    - 28.01% registros con discrepancias en total_amount
-    - Valores negativos generalizados (0.57% tarifas, 0.58% totales)
-    - VendorID=5 inválido (14 registros)
-    - Fechas fuera de rango mayo 2022
-    - 73,587 viajes con 0 pasajeros (2.05%)
-    - 46,438 viajes con distancia 0 (1.29%)
-    - 135 propinas anómalas en pagos en efectivo
+    Critical issues identified in EDA:
+    - 28.01% records with discrepancies in total_amount
+    - Widespread negative values (0.57% fares, 0.58% totals)
+    - Invalid VendorID=5 (14 records)
+    - Dates out of range May 2022
+    - 73,587 trips with 0 passengers (2.05%)
+    - 46,438 trips with 0 distance (1.29%)
+    - 135 anomalous tips in cash payments
     
-    Nota: La ingeniería de características se realiza en TaxiFeatureEngineer.
+    Note: Feature engineering is performed in TaxiFeatureEngineer.
     """
     
     def __init__(self, raw_data_path: str = None):
         """
-        Inicializar el preprocesador.
+        Initialize the preprocessor.
         
         Args:
-            raw_data_path: Ruta al archivo de datos raw. Si None, usa RAW_DATA de config.
+            raw_data_path: Path to the raw data file. If None, uses RAW_DATA from config.
         """
         self.raw_data_path = raw_data_path or RAW_DATA
         self.df = None
@@ -84,30 +83,30 @@ class TaxiDataPreprocessor:
             'congestion_surcharge', 'airport_fee'
         ]
         
-        logger.info("TaxiDataPreprocessor inicializado")
+        logger.info("TaxiDataPreprocessor initialized")
     
     def load_data(self) -> pd.DataFrame:
-        """Cargar datos raw desde archivo parquet."""
+        """Load raw data from parquet file."""
         try:
-            logger.info(f"Cargando datos desde: {self.raw_data_path}")
+            logger.info(f"Loading data from: {self.raw_data_path}")
             self.df = pd.read_parquet(self.raw_data_path)
             self.original_shape = self.df.shape
-            logger.info(f"Datos cargados: {self.original_shape[0]:,} filas, {self.original_shape[1]} columnas")
+            logger.info(f"Data loaded: {self.original_shape[0]:,} rows, {self.original_shape[1]} columns")
             return self.df
         except Exception as e:
-            logger.error(f"Error cargando datos: {e}")
+            logger.error(f"Error loading data: {e}")
             raise
     
     def validate_basic_structure(self) -> dict:
         """
-        Validar estructura básica y completitud del dataset.
+        Validate basic structure and completeness of the dataset.
         
         Returns:
-            dict: Estadísticas de validación
+            dict: Validation statistics
         """
-        logger.info("=== VALIDACIÓN DE ESTRUCTURA BÁSICA ===")
+        logger.info("=== BASIC STRUCTURE VALIDATION ===")
         
-        # Columnas esperadas según diccionario TLC
+        # Expected columns according to TLC data dictionary
         expected_columns = [
             'VendorID', 'tpep_pickup_datetime', 'tpep_dropoff_datetime',
             'passenger_count', 'trip_distance', 'RatecodeID', 'store_and_fwd_flag',
@@ -131,7 +130,7 @@ class TaxiDataPreprocessor:
             'memory_usage_mb': self.df.memory_usage(deep=True).sum() / 1024**2
         }
         
-        # Valores faltantes
+        # Missing values
         missing_values = self.df.isnull().sum()
         missing_percentage = (missing_values / len(self.df)) * 100
         validation_stats['missing_values'] = {
@@ -140,7 +139,7 @@ class TaxiDataPreprocessor:
             if count > 0
         }
         
-        # Duplicados
+        # Duplicates
         duplicates = self.df.duplicated().sum()
         validation_stats['duplicates'] = {
             'count': int(duplicates),
@@ -157,19 +156,19 @@ class TaxiDataPreprocessor:
     
     def clean_datetime_fields(self) -> pd.DataFrame:
         """
-        Limpiar campos de fecha/hora basado en hallazgos del EDA.
+        Clean datetime fields based on EDA findings.
         
-        Issues identificados:
-        - Fechas fuera del rango mayo 2022 (datos 2003-2022)
-        - 3,030 viajes con duración negativa/cero (0.08%)
-        - 48,944 viajes < 1 minuto (1.36%)
-        - 5,084 viajes > 3 horas (0.14%)
+        Identified issues:
+        - Dates out of range May 2022 (data 2003-2022)
+        - 3,030 trips with negative/zero duration (0.08%)
+        - 48,944 trips < 1 minute (1.36%)
+        - 5,084 trips > 3 hours (0.14%)
         """
-        logger.info("=== LIMPIEZA DE CAMPOS TEMPORALES ===")
+        logger.info("=== DATETIME FIELDS CLEANING ===")
         
         initial_count = len(self.df)
         
-        # Convertir a datetime si es necesario
+        # Convert to datetime if necessary
         datetime_cols = ['tpep_pickup_datetime', 'tpep_dropoff_datetime']
         for col in datetime_cols:
             if col not in self.df.columns:
@@ -180,7 +179,7 @@ class TaxiDataPreprocessor:
             
             self.df[col] = pd.to_datetime(self.df[col], errors='coerce')
         
-        # Filtrar fechas válidas usando PREPROCESSING_PARAMS[data_year] y PREPROCESSING_PARAMS[data_month]
+        # Filter valid dates using PREPROCESSING_PARAMS[data_year] and PREPROCESSING_PARAMS[data_month]
         if 'tpep_pickup_datetime' in self.df.columns:
             valid_date_mask = (
                 (self.df['tpep_pickup_datetime'].dt.year == PREPROCESSING_PARAMS['data_year']) &
@@ -188,39 +187,36 @@ class TaxiDataPreprocessor:
             )
             
             invalid_dates = (~valid_date_mask).sum()
-            logger.info(f"Registros con fechas fuera {PREPROCESSING_PARAMS['data_year']}-{PREPROCESSING_PARAMS['data_month']}: {invalid_dates:,} ({invalid_dates/len(self.df)*100:.2f}%)")
+            logger.info(f"Records with dates outside {PREPROCESSING_PARAMS['data_year']}-{PREPROCESSING_PARAMS['data_month']}: {invalid_dates:,} ({invalid_dates/len(self.df)*100:.2f}%)")
             
             if invalid_dates > 0:
                 self.df = self.df[valid_date_mask].copy()
-                logger.info(f"Filtrados {invalid_dates:,} registros con fechas inválidas")
+                logger.info(f"Filtered {invalid_dates:,} records with invalid dates")
         
-        # Calcular duración del viaje
+        # Calculate trip duration
         if all(col in self.df.columns for col in datetime_cols):
             self.df['trip_duration_minutes'] = (
                 self.df['tpep_dropoff_datetime'] - self.df['tpep_pickup_datetime']
             ).dt.total_seconds() / 60
             
-            # Filtrar duraciones válidas (entre 1 minuto y 3 horas)
+            # Filter valid durations (between 1 minute and 3 hours)
             duration_mask = (
                 (self.df['trip_duration_minutes'] >= 1) &
                 (self.df['trip_duration_minutes'] <= 180)
             )
             
             invalid_duration = (~duration_mask).sum()
-            logger.info(f"Registros con duración inválida: {invalid_duration:,} ({invalid_duration/len(self.df)*100:.2f}%)")
+            logger.info(f"Records with invalid duration: {invalid_duration:,} ({invalid_duration/len(self.df)*100:.2f}%)")
             
             if invalid_duration > 0:
                 self.df = self.df[duration_mask].copy()
-                logger.info(f"Filtrados {invalid_duration:,} registros con duración inválida")
+                logger.info(f"Filtered {invalid_duration:,} records with invalid duration")
             
-            # Solo crear duración del viaje (necesaria para validación)
-            # Las features temporales se crean en features.py
-        
         final_count = len(self.df)
         removed_records = initial_count - final_count
         
-        logger.info(f"Registros removidos por fechas/duración: {removed_records:,}")
-        logger.info(f"Registros restantes: {final_count:,}")
+        logger.info(f"Removed records due to date/duration: {removed_records:,}")
+        logger.info(f"Remaining records: {final_count:,}")
         
         self.preprocessing_stats['datetime_cleaning'] = {
             'initial_count': initial_count,
@@ -233,28 +229,28 @@ class TaxiDataPreprocessor:
     
     def clean_categorical_fields(self) -> pd.DataFrame:
         """
-        Limpiar campos categóricos basado en diccionario TLC.
+        Clean categorical fields based on TLC dictionary.
         
-        Issues identificados:
-        - VendorID=5 inválido (14 registros)
-        - 73,587 viajes con 0 pasajeros (2.05%)
-        - Valores faltantes en campos categóricos (3.6%)
+        Identified issues:
+        - VendorID=5  invalid (14 records)
+        - 73,587 trips with 0 passengers (2.05%)
+        - Missing values in categorical fields (3.6%)
         """
-        logger.info("=== LIMPIEZA DE CAMPOS CATEGÓRICOS ===")
+        logger.info("=== CLEANING CATEGORICAL FIELDS ===")
         
         initial_count = len(self.df)
         
-        # Limpiar VendorID - mantener solo valores válidos
+        # Clean VendorID - keep only valid values
         if 'VendorID' in self.df.columns:
             valid_vendors = list(self.vendor_mapping.keys())
             invalid_vendor_mask = ~self.df['VendorID'].isin(valid_vendors)
             invalid_vendors = invalid_vendor_mask.sum()
             
             if invalid_vendors > 0:
-                logger.info(f"VendorIDs inválidos: {invalid_vendors:,}")
+                logger.info(f"Invalid VendorIDs: {invalid_vendors:,}")
                 self.df = self.df[~invalid_vendor_mask].copy()
         
-        # Limpiar passenger_count - remover 0 pasajeros y valores extremos
+        # Clean passenger_count - remove 0 passengers and extreme values
         if 'passenger_count' in self.df.columns:
             passenger_mask = (
                 (self.df['passenger_count'] >= 1) &
@@ -263,12 +259,12 @@ class TaxiDataPreprocessor:
             )
             
             invalid_passengers = (~passenger_mask).sum()
-            logger.info(f"Registros con passenger_count inválido: {invalid_passengers:,}")
+            logger.info(f"Records with invalid passenger_count: {invalid_passengers:,}")
             
             if invalid_passengers > 0:
                 self.df = self.df[passenger_mask].copy()
         
-        # Validar RatecodeID
+        # Validate RatecodeID
         if 'RatecodeID' in self.df.columns:
             valid_ratecodes = list(self.ratecode_mapping.keys())
             invalid_ratecode_mask = (
@@ -278,33 +274,33 @@ class TaxiDataPreprocessor:
             invalid_ratecodes = invalid_ratecode_mask.sum()
             
             if invalid_ratecodes > 0:
-                logger.info(f"RatecodeIDs inválidos: {invalid_ratecodes:,}")
+                logger.info(f"Invalid RatecodeIDs: {invalid_ratecodes:,}")
                 self.df = self.df[~invalid_ratecode_mask].copy()
         
-        # Validar payment_type
+        # Validate payment_type
         if 'payment_type' in self.df.columns:
             valid_payments = list(self.payment_mapping.keys())
             invalid_payment_mask = ~self.df['payment_type'].isin(valid_payments)
             invalid_payments = invalid_payment_mask.sum()
             
             if invalid_payments > 0:
-                logger.info(f"payment_types inválidos: {invalid_payments:,}")
+                logger.info(f"Invalid payment_types: {invalid_payments:,}")
                 self.df = self.df[~invalid_payment_mask].copy()
         
-        # Limpiar store_and_fwd_flag
+        # Clean store_and_fwd_flag
         if 'store_and_fwd_flag' in self.df.columns:
             valid_flags = ['Y', 'N']
             invalid_flag_mask = ~self.df['store_and_fwd_flag'].isin(valid_flags)
             invalid_flags = invalid_flag_mask.sum()
             
             if invalid_flags > 0:
-                logger.info(f"store_and_fwd_flags inválidos: {invalid_flags:,}")
+                logger.info(f"Invalid store_and_fwd_flags: {invalid_flags:,}")
                 self.df = self.df[~invalid_flag_mask].copy()
         
         final_count = len(self.df)
         removed_records = initial_count - final_count
         
-        logger.info(f"Registros removidos por campos categóricos: {removed_records:,}")
+        logger.info(f"Records removed due to categorical fields: {removed_records:,}")
         
         self.preprocessing_stats['categorical_cleaning'] = {
             'initial_count': initial_count,
@@ -317,19 +313,19 @@ class TaxiDataPreprocessor:
     
     def clean_monetary_fields(self) -> pd.DataFrame:
         """
-        Limpiar campos monetarios basado en hallazgos del EDA.
+        Clean monetary fields based on EDA findings.
         
-        Issues identificados:
-        - 28.01% registros con discrepancias en total_amount
-        - 20,506 tarifas negativas (0.57%)
-        - 20,709 totales negativos (0.58%)
-        - 135 propinas anómalas en pagos en efectivo
+        Identified Issues:
+        - 28.01% rows with discrepancies in total_amount
+        - 20,506 negative fares (0.57%)
+        - 20,709 negative totals (0.58%)
+        - 135 anomalous tips in cash payments
         """
-        logger.info("=== LIMPIEZA DE CAMPOS MONETARIOS ===")
+        logger.info("=== CLEANING MONETARY FIELDS ===")
         
         initial_count = len(self.df)
         
-        # Remover valores negativos en campos que no deberían ser negativos
+        # Remove negative values in fields that should not be negative
         positive_fields = ['fare_amount', 'trip_distance', 'total_amount', 'tip_amount', 'tolls_amount']
         
         for field in positive_fields:
@@ -341,50 +337,50 @@ class TaxiDataPreprocessor:
             if negative_count == 0:
                 continue
             
-            logger.info(f"Valores negativos en {field}: {negative_count:,}")
+            logger.info(f"Negative values in {field}: {negative_count:,}")
             self.df = self.df[~negative_mask].copy()
         
-        # Filtrar viajes con fare_amount = 0 (problemáticos para cálculos)
+        # Filter trips with fare_amount = 0 (problematic for calculations)
         if 'fare_amount' in self.df.columns:
             zero_fare_mask = self.df['fare_amount'] == 0
             zero_fares = zero_fare_mask.sum()
             
             if zero_fares > 0:
-                logger.info(f"Viajes con fare_amount = 0: {zero_fares:,}")
+                logger.info(f"Trips with fare_amount = 0: {zero_fares:,}")
                 self.df = self.df[~zero_fare_mask].copy()
         
-        # Filtrar viajes con distancia 0
+        # Filter trips with distance 0
         if 'trip_distance' in self.df.columns:
             zero_distance_mask = self.df['trip_distance'] == 0
             zero_distance = zero_distance_mask.sum()
             
             if zero_distance > 0:
-                logger.info(f"Viajes con distancia 0: {zero_distance:,}")
+                logger.info(f"Trips with distance 0: {zero_distance:,}")
                 self.df = self.df[~zero_distance_mask].copy()
         
-        # Limpiar propinas anómalas en pagos en efectivo
+        # Clean anomalous tips in cash payments
         if 'tip_amount' in self.df.columns and 'payment_type' in self.df.columns:
             cash_tip_mask = (self.df['payment_type'] == 2) & (self.df['tip_amount'] > 0)
             cash_tips = cash_tip_mask.sum()
             
             if cash_tips > 0:
-                logger.info(f"Propinas anómalas en efectivo: {cash_tips:,}")
+                logger.info(f"Anomalous tips in cash payments: {cash_tips:,}")
                 self.df.loc[cash_tip_mask, 'tip_amount'] = 0
         
-        # Aplicar límites razonables a outliers extremos
+        # Apply reasonable limits to extreme outliers
         if 'fare_amount' in self.df.columns:
             fare_q95 = self.df['fare_amount'].quantile(0.95)
-            high_fare_mask = self.df['fare_amount'] > fare_q95 * 3  # 3x el percentil 95
+            high_fare_mask = self.df['fare_amount'] > fare_q95 * 3  # 3x the 95th percentile
             high_fares = high_fare_mask.sum()
             
             if high_fares > 0:
-                logger.info(f"Tarifas extremadamente altas removidas: {high_fares:,}")
+                logger.info(f"Extremely high fares removed: {high_fares:,}")
                 self.df = self.df[~high_fare_mask].copy()
         
         final_count = len(self.df)
         removed_records = initial_count - final_count
         
-        logger.info(f"Registros removidos por campos monetarios: {removed_records:,}")
+        logger.info(f"Records removed due to monetary fields: {removed_records:,}")
         
         self.preprocessing_stats['monetary_cleaning'] = {
             'initial_count': initial_count,
@@ -397,21 +393,21 @@ class TaxiDataPreprocessor:
     
     def validate_total_amount(self) -> pd.DataFrame:
         """
-        Validar y corregir discrepancias en total_amount.
+        Validate and correct discrepancies in total_amount.
         
-        EDA encontró 28.01% registros con discrepancias (diferencia promedio $2.50).
+        EDA found 28.01% records with discrepancies (average difference $2.50).
         """
-        logger.info("=== VALIDACIÓN DE total_amount ===")
+        logger.info("=== VALIDATION OF total_amount ===")
         
         if 'total_amount' not in self.df.columns:
-            logger.warning("Campo total_amount no encontrado")
+            logger.warning("total_amount field not found")
             return self.df
         
-        # Calcular total esperado
+        # Calculate expected total
         base_fields = ['fare_amount', 'extra', 'mta_tax', 'tip_amount', 'tolls_amount', 'improvement_surcharge']
         additional_fields = ['congestion_surcharge', 'airport_fee']
         
-        # Inicializar con campos base
+        # Initialize with base fields
         calculated_total = pd.Series(0, index=self.df.index)
         
         for field in base_fields:
@@ -420,27 +416,27 @@ class TaxiDataPreprocessor:
             
             calculated_total += self.df[field].fillna(0)
         
-        # Agregar campos adicionales si existen
+        # Add additional fields if they exist
         for field in additional_fields:
             if field not in self.df.columns:
                 continue
             
             calculated_total += self.df[field].fillna(0)
         
-        # Calcular diferencias
+        # Calculate differences
         diff = abs(self.df['total_amount'] - calculated_total)
-        discrepancy_mask = diff > 0.01  # Diferencia mayor a 1 centavo
+        discrepancy_mask = diff > 0.01  # Difference greater than 1 cent
         discrepancies = discrepancy_mask.sum()
         
-        logger.info(f"Registros con discrepancias en total_amount: {discrepancies:,} ({discrepancies/len(self.df)*100:.2f}%)")
+        logger.info(f"Records with discrepancies in total_amount: {discrepancies:,} ({discrepancies/len(self.df)*100:.2f}%)")
         
         if discrepancies > 0:
-            logger.info(f"Diferencia promedio: ${diff[discrepancy_mask].mean():.2f}")
-            logger.info(f"Diferencia máxima: ${diff.max():.2f}")
+            logger.info(f"Average difference: ${diff[discrepancy_mask].mean():.2f}")
+            logger.info(f"Maximum difference: ${diff.max():.2f}")
             
-            # Corregir total_amount con valor calculado
+            # Correct total_amount with calculated value
             self.df.loc[discrepancy_mask, 'total_amount'] = calculated_total[discrepancy_mask]
-            logger.info("total_amount corregido basado en suma de componentes")
+            logger.info("total_amount corrected based on sum of components")
         
         self.preprocessing_stats['total_amount_validation'] = {
             'discrepancies_found': int(discrepancies),
@@ -453,17 +449,17 @@ class TaxiDataPreprocessor:
     
     def remove_outliers(self, method='iqr', factor=1.5) -> pd.DataFrame:
         """
-        Remover outliers extremos usando método IQR.
+        Remove extreme outliers using the IQR method.
         
         Args:
-            method: Método para detectar outliers ('iqr')
-            factor: Factor multiplicador para límites IQR (default 1.5)
+            method: Method to detect outliers ('iqr')
+            factor: Multiplicative factor for IQR limits (default 1.5)
         """
-        logger.info(f"=== REMOCIÓN DE OUTLIERS ({method.upper()}) ===")
+        logger.info(f"=== OUTLIER REMOVAL ({method.upper()}) ===")
         
         initial_count = len(self.df)
         
-        # Campos para análisis de outliers
+        # Fields for outlier analysis
         outlier_fields = ['trip_distance', 'fare_amount', 'total_amount', 'tip_amount', 'trip_duration_minutes']
         outlier_fields = [field for field in outlier_fields if field in self.df.columns]
         
@@ -481,14 +477,14 @@ class TaxiDataPreprocessor:
                 outliers_count = outlier_mask.sum()
                 
                 if outliers_count > 0:
-                    logger.info(f"Outliers en {field}: {outliers_count:,} ({outliers_count/len(self.df)*100:.2f}%)")
+                    logger.info(f"Outliers in {field}: {outliers_count:,} ({outliers_count/len(self.df)*100:.2f}%)")
                     self.df = self.df[~outlier_mask].copy()
                     total_outliers_removed += outliers_count
         
         final_count = len(self.df)
         
-        logger.info(f"Total outliers removidos: {total_outliers_removed:,}")
-        logger.info(f"Registros restantes: {final_count:,}")
+        logger.info(f"Total outliers removed: {total_outliers_removed:,}")
+        logger.info(f"Remaining records: {final_count:,}")
         
         self.preprocessing_stats['outlier_removal'] = {
             'method': method,
@@ -503,13 +499,13 @@ class TaxiDataPreprocessor:
     
     def get_preprocessing_summary(self) -> dict:
         """
-        Obtener resumen completo del preprocesamiento.
+        Get full preprocessing summary.
         
         Returns:
-            dict: Estadísticas completas del preprocesamiento
+            dict: Complete preprocessing statistics
         """
         if not self.preprocessing_stats:
-            logger.warning("No hay estadísticas de preprocesamiento disponibles")
+            logger.warning("No preprocessing statistics available")
             return {}
         
         summary = {
@@ -527,108 +523,110 @@ class TaxiDataPreprocessor:
                                 outlier_method: str = 'iqr',
                                 outlier_factor: float = 1.5) -> pd.DataFrame:
         """
-        Ejecutar pipeline completo de limpieza de datos.
+        Execute full data cleaning pipeline.
         
         Args:
-            remove_outliers: Si remover outliers extremos
-            outlier_method: Método para detección de outliers
-            outlier_factor: Factor para límites de outliers
+            remove_outliers: if to remove extreme outliers
+            outlier_method: Method to detect outliers
+            outlier_factor: Factor for outlier limits
             
         Returns:
-            pd.DataFrame: Datos limpios (sin ingeniería de características)
+            pd.DataFrame: Clean data (without feature engineering)
         """
-        logger.info("=== INICIANDO PIPELINE DE LIMPIEZA DE DATOS ===")
+        logger.info("=== STARTING DATA CLEANING PIPELINE ===")
         
-        # 1. Cargar datos
+        # 1. Load data
         self.load_data()
         
-        # 2. Validar estructura básica
+        # 2. Validate basic structure
         self.validate_basic_structure()
         
-        # 3. Limpiar campos temporales
+        # 3. Clean datetime fields
         self.clean_datetime_fields()
         
-        # 4. Limpiar campos categóricos
+        # 4. Clean categorical fields
         self.clean_categorical_fields()
         
-        # 5. Limpiar campos monetarios
+        # 5. Clean monetary fields
         self.clean_monetary_fields()
         
-        # 6. Validar total_amount
+        # 6. Validate total_amount
         self.validate_total_amount()
         
-        # 7. Remover outliers si se solicita
+        # 7. Remove outliers if requested
         if remove_outliers:
             self.remove_outliers(method=outlier_method, factor=outlier_factor)
         
-        # Resumen final
+        # Final summary
         summary = self.get_preprocessing_summary()
-        logger.info("=== LIMPIEZA DE DATOS COMPLETADA ===")
-        logger.info(f"Registros originales: {summary['original_shape'][0]:,}")
-        logger.info(f"Registros limpios: {summary['total_removed']:,} ({summary['removal_percentage']:.2f}%)")
-        logger.info("Datos listos para ingeniería de características")
+        logger.info("=== DATA CLEANING COMPLETED ===")
+        logger.info(f"Original records: {summary['original_shape'][0]:,}")
+        logger.info(f"Clean records: {summary['total_removed']:,} ({summary['removal_percentage']:.2f}%)")
+        logger.info("Data ready for feature engineering")
         
         return self.df
     
     def save_processed_data(self, output_path: str = None) -> str:
         """
-        Guardar datos procesados en archivo parquet.
+        Save processed data to a parquet file.
         
         Args:
-            output_path: Ruta de salida. Si None, usa PROCESSED_DATA de config.
+            output_path: Output path. If None, uses PROCESSED_DATA from config.
             
         Returns:
-            str: Ruta del archivo guardado
+            str: Path of the saved file
         """
         if self.df is None:
-            raise ValueError("No hay datos procesados para guardar. Ejecute el pipeline primero.")
+            raise ValueError("No processed data to save. Run the pipeline first.")
+        else:
+            logger.info("Saving processed data...")
         
         output_path = output_path or PROCESSED_DATA
         
-        # Crear directorio si no existe
+        # Create directory if it doesn't exist
         output_dir = Path(output_path).parent
         output_dir.mkdir(parents=True, exist_ok=True)
         
-        # Guardar datos
+        # Save data
         self.df.to_parquet(output_path, index=False, engine='pyarrow', compression='gzip')
-        logger.info(f"Datos procesados guardados en: {output_path}")
-        logger.info(f"Tamaño del archivo: {Path(output_path).stat().st_size / 1024**2:.2f} MB")
+        logger.info(f"Processed data saved at: {output_path}")
+        logger.info(f"File size: {Path(output_path).stat().st_size / 1024**2:.2f} MB")
         
         return output_path
 
 
 def main():
-    """Función principal para ejecutar la limpieza de datos."""
+    """Main function to run data cleaning."""
     try:
-        # Inicializar preprocesador
+        # Initialize preprocessor
         preprocessor = TaxiDataPreprocessor()
         
-        # Ejecutar pipeline de limpieza
+        # Run cleaning pipeline
         cleaned_data = preprocessor.preprocess_full_pipeline(
             remove_outliers=True,
             outlier_method='iqr',
             outlier_factor=1.5
         )
         
-        # Guardar datos limpios
+        # Save cleaned data
         output_path = preprocessor.save_processed_data()
         
-        # Mostrar resumen
+        # Show summary
         summary = preprocessor.get_preprocessing_summary()
         print("\n" + "="*50)
-        print("RESUMEN DE LIMPIEZA DE DATOS")
+        print("DATA CLEANING SUMMARY")
         print("="*50)
-        print(f"Registros originales: {summary['original_shape'][0]:,}")
-        print(f"Registros limpios: {summary['final_shape'][0]:,}")
-        print(f"Registros removidos: {summary['total_removed']:,} ({summary['removal_percentage']:.2f}%)")
-        print(f"Archivo de datos limpios: {output_path}")
-        print("\n📋 SIGUIENTE PASO:")
-        print("   Ejecutar features.py para ingeniería de características")
+        print(f"Original records: {summary['original_shape'][0]:,}")
+        print(f"Clean records: {summary['final_shape'][0]:,}")
+        print(f"Records removed: {summary['total_removed']:,} ({summary['removal_percentage']:.2f}%)")
+        print(f"Clean data file: {output_path}")
+        print("\n📋 NEXT STEP:")
+        print("   Run features.py for feature engineering")
         
         return cleaned_data, summary
         
     except Exception as e:
-        logger.error(f"Error en limpieza de datos: {e}")
+        logger.error(f"Error in data cleaning: {e}")
         raise
 
 
