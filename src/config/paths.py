@@ -19,12 +19,25 @@ PROCESSED_DATA = str(PROCESSED_DIR / "processed_data.parquet")
 FEATURE_DATA = str(PROCESSED_DIR / "feature_data.parquet")
 
 # Output files from preprocessing
-TRAIN_DATA = str(PROCESSED_DIR / "train_data.parquet")
-TEST_DATA = str(PROCESSED_DIR / "test_data.parquet")
-VAL_DATA = str(PROCESSED_DIR / "val_data.parquet")
+TRAIN_DATA_FARE = str(PROCESSED_DIR / "train_data_fare.parquet")
+TEST_DATA_FARE = str(PROCESSED_DIR / "test_data_fare.parquet")
+VAL_DATA_FARE = str(PROCESSED_DIR / "val_data_fare.parquet")
+
+TRAIN_DATA_DURATION = str(PROCESSED_DIR / "train_data_duration.parquet")
+TEST_DATA_DURATION = str(PROCESSED_DIR / "test_data_duration.parquet")
+VAL_DATA_DURATION = str(PROCESSED_DIR / "val_data_duration.parquet")
+
+FARE_MODEL_DATA_FILE = str(PROCESSED_DIR / "fare_model_data.pkl")
+DURATION_MODEL_DATA_FILE = str(PROCESSED_DIR / "duration_model_data.pkl")
+FARE_FEATURE_SCORES_FILE = str(PROCESSED_DIR / "fare_feature_scores.csv")
+DURATION_FEATURE_SCORES_FILE = str(PROCESSED_DIR / "duration_feature_scores.csv")
 
 # Logging configuration
 LOGGER_NAME = "nyc_taxi_logger"
+
+# Trained models output path
+BASELINE_MODEL_PATH = PROJECT_ROOT / "models" / "baseline"
+ADVANCED_MODEL_PATH = PROJECT_ROOT / "models" / "advanced"
 
 # Create directories if they do not exist
 def ensure_directories():
