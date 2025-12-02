@@ -4,14 +4,22 @@ from src.models.base_model import BaseModel
 from src.config.settings import RANDOM_STATE
 from src.evaluation.metrics import calculate_metrics
 class LinearRegressionModel(BaseModel):
-    def __init__(self, model_path:str, target: str = 'fare_amount', random_state: int = RANDOM_STATE):
-        super().__init__('linear_regression', target, model_path)
+    def __init__(self, output_path:str, target: str = 'fare_amount'):
+        """
+            Initialize the Linear Regression Model
+            Args:
+                output_path (str): Path where the model will be saved
+                target (str): Target variable
+        """
+        
+        super().__init__('linear_regression', target, output_path, model_type='baseline')
         self.model = LinearRegression()
     
     def fit(self, X, y):
         """Train the linear regression model"""
         self.model.fit(X, y)
         self.is_trained = True
+        
         return self
     
     def predict(self, X):
@@ -30,13 +38,22 @@ class LinearRegressionModel(BaseModel):
         return self.model.get_params()
         
 class DecisionTreeModel(BaseModel):
-    def __init__(self, model_path:str,target: str = 'fare_amount', max_depth: int = 10, random_state: int = RANDOM_STATE):
-        super().__init__('decision_tree', target, model_path)
+    def __init__(self, output_path:str,target: str = 'fare_amount'):
+        """
+            Initialize the Decision Tree Model
+            Args:
+                output_path (str): Path where the model will be saved
+                target (str): Target variable
+        """
+        super().__init__('decision_tree', target, output_path, model_type='baseline')
         self.model = DecisionTreeRegressor(
-            max_depth=max_depth, 
-            random_state=random_state,
+            max_depth=10, 
+            random_state=RANDOM_STATE,
             min_samples_split=20,  
-            min_samples_leaf=10
+            min_samples_leaf=10,
+            max_features='sqrt',
+            min_impurity_decrease=0.001,
+            criterion='absolute_error'
         )
     
     def fit(self, X, y):

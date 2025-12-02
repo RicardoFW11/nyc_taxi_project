@@ -20,20 +20,20 @@ def calculate_metrics(y_true, y_pred):
     residuals = y_true - y_pred
     
     metrics = {
-        # Métricas básicas
+        # Basic metrics
         'rmse': np.sqrt(mean_squared_error(y_true, y_pred)),
         'mae': mean_absolute_error(y_true, y_pred),
         'r2': r2_score(y_true, y_pred),
         'mse': mean_squared_error(y_true, y_pred),
         
-        # Métricas de residuales
+        # Residual metrics
         'mean_residual': np.mean(residuals),
         'std_residual': np.std(residuals),
         'median_ae': np.median(np.abs(residuals)),
         'max_error': np.max(np.abs(residuals)),
         'min_error': np.min(np.abs(residuals)),
         
-        # Percentiles de errores
+        # Error percentiles
         'q25_error': np.percentile(np.abs(residuals), 25),
         'q75_error': np.percentile(np.abs(residuals), 75),
         'q95_error': np.percentile(np.abs(residuals), 95),
@@ -47,11 +47,11 @@ def calculate_metrics(y_true, y_pred):
     else:
         metrics['mape'] = np.inf
         
-    # Usar sklearn directamente para todas las métricas
+    # # Use sklearn directly for all metrics
     # conf_matrix = confusion_matrix(y_true, y_pred)
     # accuracy = accuracy_score(y_true, y_pred)
     
-    # Calcular precision, recall, f1 usando sklearn
+    # # Calculate precision, recall, f1 using sklearn
     # precision, recall, f1, support = precision_recall_fscore_support(
     #     y_true, y_pred, average=None, zero_division=0
     # )

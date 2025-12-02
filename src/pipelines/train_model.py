@@ -8,7 +8,6 @@ from datetime import datetime
 import joblib
 from pathlib import Path
 
-# Importar tus clases de modelos
 from src.models.baseline import LinearRegressionModel, DecisionTreeModel
 from src.models.advanced import XGBoostModel, RandomForestModel
 from src.models.base_model import BaseModel as basemo
@@ -25,19 +24,18 @@ logger = LoggerFactory.create_logger(
         )
 
 class ModelTrainer:
-    def __init__(self, data_path, models_output_path, models:list[basemo]):
+    def __init__(self, data_path, models:list[basemo]):
         """
             Initialize the ModelTrainer with paths and data structures.
+            
+            Args:
+                data_path (str): Path to the split data file.
+                models (list): List of model instances to train.
         """
         self.data_path = Path(data_path)
         
         if not self.data_path.exists():
             raise FileNotFoundError(f"Data file not found at {self.data_path}")
-        
-        self.models_output_path = Path(models_output_path)
-        self.models_output_path.mkdir(parents=True, exist_ok=True)
-        
-        self.data = joblib.load(self.data_path)
         
         self.X_train = None
         self.X_test = None
@@ -88,14 +86,20 @@ class ModelTrainer:
             return False
         
     def train_model(self):
+        """
+            Train all provided models
+        """
+        
         logger.info("Training models...")
         
         for model_instance in self.model_instances:
-            logger.info(f"Training model: {model_instance.model_name} - Target: {model_instance.target}")
+            logger.info(f"\tTraining {model_instance.model_type} model: {model_instance.model_name}, Target: {model_instance.target}, Samples: {self.X_train.shape[0]}, Features: {self.X_train.shape[1]}")
             
             # train the model using your class method
             model_instance.fit(self.X_train, self.y_train)
-            # Evaluar el modelo
+            
+            logger.info(f"\tEvaluating {model_instance.model_type} model: {model_instance.model_name} ...")
+            # Eval the model
             train_metrics = model_instance.evaluate(self.X_train, self.y_train)
             test_metrics = model_instance.evaluate(self.X_test, self.y_test)
             val_metrics = model_instance.evaluate(self.X_val, self.y_val)
@@ -104,18 +108,17 @@ class ModelTrainer:
                 'model_instance': model_instance,
                 'train_metrics': train_metrics,
                 'test_metrics': test_metrics,
-                'val_metrics': val_metrics,
-                'train_time': datetime.now()
+                'val_metrics': val_metrics
             }
             
             self.model_results[model_instance.model_name] = results
-            logger.info(f"  ✓ {model_instance.model_name} trained successfully")
+            logger.info(f" \t✓ {model_instance.model_name} trained successfully")
             
         logger.info("All models trained.")
     
     def save_trained_models(self):
-        """Guardar todos los modelos entrenados"""
-        print(f"\n💾 Guardando modelos en {self.models_output_path}...")
+        """Save all trained models"""
+        logger.info(f"\n💾 Saving models ...")
         
         saved_count = 0
         
@@ -123,47 +126,28 @@ class ModelTrainer:
             try:
                 model_instance = results['model_instance']
                 
-                # Usar el método save de tu clase si existe, sino usar joblib
-                model_path = self.models_output_path / f"{model_name}_model.joblib"
+                model_path = model_instance.save_model()
                 
-                if hasattr(model_instance, 'save'):
-                    model_instance.save()
-                else:
-                    joblib.dump(model_instance, model_path)
-                
-                print(f"  ✓ {model_name} guardado en {model_path}")
+                logger.info(f"  ✓ {model_name} saved to {model_path}")
                 saved_count += 1
                 
             except Exception as e:
-                print(f"  ❌ Error guardando {model_name}: {e}")
+                logger.error(f"  ❌ Error saving {model_name}: {e}")
         
-        # Guardar resumen de resultados
-        self._save_results_summary()
-        
-        print(f"✓ {saved_count} modelos guardados exitosamente")
+        logger.info(f"✓ {saved_count} models saved successfully")
         return saved_count
     
-    def _save_results_summary(self):
-        """Guardar resumen de resultados en CSV y pickle"""
-        
-        # Guardar pickle con todos los detalles
-        pickle_path = self.models_output_path / 'training_results.pkl'
-        with open(pickle_path, 'wb') as f:
-            pickle.dump(self.model_results, f)
-        
-        print(f"  ✓ Detalles guardados en {pickle_path}")
-    
     def print_results_summary(self):
-        """Imprimir resumen detallado de resultados"""
+        """Print detailed results summary"""
         if not self.model_results:
-            print("❌ No hay resultados para mostrar")
+            logger.error("❌ No results to display")
             return
         
-        print("\n" + "="*80)
-        print("RESUMEN DE RESULTADOS DEL ENTRENAMIENTO")
-        print("="*80)
+        logger.info("\n" + "="*80)
+        logger.info("TRAINING RESULTS SUMMARY")
+        logger.info("="*80)
         
-        # Crear DataFrame para mostrar resultados
+        # Create DataFrame to display results
         summary_data = []
         for model_name, results in self.model_results.items():
             train_metrics = results['train_metrics']
@@ -184,71 +168,66 @@ class ModelTrainer:
             })
         
         df_summary = pd.DataFrame(summary_data)
-        print(df_summary.to_string(index=False))
+        logger.info("\n" + df_summary.to_string(index=False))
         
-        # Identificar mejor modelo
-        best_model_name = max(self.model_results.keys(), 
-                            key=lambda x: self.model_results[x]['test_metrics'].get('r2', 0))
-        best_r2 = self.model_results[best_model_name]['test_metrics'].get('r2', 0)
+        # Identify best model
+        best_model_name, best_model = self.get_best_model()
         
-        print(f"\n🏆 MEJOR MODELO: {best_model_name.replace('_', ' ').title()}")
-        print(f"   R² en test: {best_r2:.4f}")
+        best_r2 = best_model['test_metrics'].get('r2', 0)
+        logger.info(f"\n🏆 BEST MODEL: {best_model_name.replace('_', ' ').title()}")
+        logger.info(f"   Test R²: {best_r2:.4f}")
         
     def get_best_model(self):
-        """Obtener el mejor modelo basado en R² de test"""
+        """Get the best model based on test R²"""
         if not self.model_results:
             return None
         
         best_model_name = max(self.model_results.keys(), 
                             key=lambda x: self.model_results[x]['test_metrics'].get('r2', 0))
         
-        return best_model_name, self.model_results[best_model_name]['model_instance']
+        return best_model_name, self.model_results[best_model_name]
 
 def main():
-    """Función principal para ejecutar el entrenamiento"""
-    print("🚀 Iniciando pipeline de entrenamiento de modelos")
-    print("="*50)
+    """Main function to execute the training pipeline"""
+    logger.info("🚀 Starting model training pipeline")
+    logger.info("="*50)
     
-    # Inicializar trainer
-    fare_base_trainer = ModelTrainer(FARE_MODEL_DATA_FILE, BASELINE_MODEL_PATH, 
-                           [LinearRegressionModel(model_path=f"{BASELINE_MODEL_PATH}/fare_amount_linear_regression.pkl", target='fare_amount'),
-                            DecisionTreeModel(model_path=f"{BASELINE_MODEL_PATH}/fare_amount_decision_tree.pkl", target='fare_amount')
-                            ])
-    fare_advanced_trainer = ModelTrainer(FARE_MODEL_DATA_FILE, ADVANCED_MODEL_PATH, 
-                           [XGBoostModel(model_path=f"{ADVANCED_MODEL_PATH}/fare_amount_xgboost.pkl", target='fare_amount'),
-                            RandomForestModel(model_path=f"{ADVANCED_MODEL_PATH}/fare_amount_random_forest.pkl", target='fare_amount')
+    # Initialize trainer
+    fare_amount_trainer = ModelTrainer(FARE_MODEL_DATA_FILE, 
+                           [LinearRegressionModel(output_path=BASELINE_MODEL_PATH, target='fare_amount'),
+                            DecisionTreeModel(output_path=BASELINE_MODEL_PATH, target='fare_amount'),
+                            XGBoostModel(output_path=ADVANCED_MODEL_PATH, target='fare_amount'),
+                            RandomForestModel(output_path=ADVANCED_MODEL_PATH, target='fare_amount')
                             ])
     
-    trip_dur_base_trainer = ModelTrainer(DURATION_MODEL_DATA_FILE, BASELINE_MODEL_PATH, 
-                           [LinearRegressionModel(model_path=f"{BASELINE_MODEL_PATH}/trip_duration_linear_regression.pkl", target='trip_duration_minutes'),
-                            DecisionTreeModel(model_path=f"{BASELINE_MODEL_PATH}/trip_duration_decision_tree.pkl", target='trip_duration_minutes')
-                            ])
-    trip_dur_advanced_trainer = ModelTrainer(DURATION_MODEL_DATA_FILE, ADVANCED_MODEL_PATH, 
-                           [XGBoostModel(model_path=f"{ADVANCED_MODEL_PATH}/trip_duration_xgboost.pkl", target='trip_duration_minutes'),
-                            RandomForestModel(model_path=f"{ADVANCED_MODEL_PATH}/trip_duration_random_forest.pkl", target='trip_duration_minutes')
+    trip_duration_trainer = ModelTrainer(DURATION_MODEL_DATA_FILE, 
+                           [LinearRegressionModel(output_path=BASELINE_MODEL_PATH, target='trip_duration_minutes'),
+                            DecisionTreeModel(output_path=BASELINE_MODEL_PATH, target='trip_duration_minutes'),
+                            XGBoostModel(output_path=ADVANCED_MODEL_PATH, target='trip_duration_minutes'),
+                            RandomForestModel(output_path=ADVANCED_MODEL_PATH, target='trip_duration_minutes')
                             ])
     
-    for trainer in [fare_base_trainer, fare_advanced_trainer, trip_dur_base_trainer, trip_dur_advanced_trainer]:
-        # Cargar datos
+    for trainer in [fare_amount_trainer, trip_duration_trainer]:
+        # Load data
         if not trainer.load_data():
-            print("❌ No se pudieron cargar los datos. Saliendo...")
+            logger.error("❌ Failed to load data. Exiting...")
             return
         
-        # Entrenar modelos
+        # Train models
         trainer.train_model()
         
-        # Mostrar resultados
+        # Show results
         trainer.print_results_summary()
         
-        # Guardar modelos
+        # Save models
         trainer.save_trained_models()
         
-        # Obtener mejor modelo
+        # Get best model
         best_name, best_model = trainer.get_best_model()
         if best_model:
-            print(f"\n💡 Considera usar '{best_name}' para producción")
+            logger.info(f"\n💡 Consider using '{best_name}' for production")
     
-    print("\n✅ Pipeline de entrenamiento completado exitosamente!")
+    logger.info("\n✅ Training pipeline completed successfully!")
 
 if __name__ == "__main__":
     main()
