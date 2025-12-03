@@ -1,0 +1,27 @@
+services:
+  nyc_api:
+    container_name: nyc_api
+    build:
+      context: .
+      dockerfile: ./src/api/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - APP_MODE=prod
+    volumes:
+      - ./models:/app/models
+      - ./data:/app/data
+    restart: unless-stopped
+
+  # nyc_front:
+  #   container_name: nyc_front
+  #   build:
+  #     context: .
+  #     dockerfile: ./src/front/Dockerfile
+  #   ports:
+  #     - "8501:8501"
+  #   environment:
+  #     - API_URL=http://nyc_api:8000
+  #   depends_on:
+  #     - nyc_api
+  #   restart: unless-stopped

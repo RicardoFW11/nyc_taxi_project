@@ -1,0 +1,9 @@
+pandas==2.3.3
+pyarrow==21.0.0
+scikit-learn==1.7.2
+numpy==1.26.4
+joblib==1.5.2
+fastapi==0.122.0
+uvicorn[standard]==0.38.0
+pydantic==2.12.5
+requests==2.32.5
