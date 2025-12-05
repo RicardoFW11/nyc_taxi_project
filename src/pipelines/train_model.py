@@ -1,5 +1,6 @@
 import sys
 import os
+import argparse
 
 import pickle
 import pandas as pd
@@ -14,6 +15,12 @@ from src.models.base_model import BaseModel as basemo
 from src.config.paths import FARE_MODEL_DATA_FILE, DURATION_MODEL_DATA_FILE, \
     BASELINE_MODEL_PATH, ADVANCED_MODEL_PATH, LOGGER_NAME
 from src.config.settings import RANDOM_STATE
+
+from src.pipelines.hyperparameter_tuner import (LinearRegressionTuner, 
+                                               DecisionTreeTuner,
+                                               XGBoostTuner,
+                                               RandomForestTuner,
+                                               HyperparameterTuner)
 
 from src.utils.logging import LoggerFactory
 logger = LoggerFactory.create_logger(
@@ -186,32 +193,245 @@ class ModelTrainer:
                             key=lambda x: self.model_results[x]['test_metrics'].get('r2', 0))
         
         return best_model_name, self.model_results[best_model_name]
+    
+class HyperparameterOptimizer:
+    def __init__(self, data_path: str, tuners: list[HyperparameterTuner]):
+        """
+        Initialize the HyperparameterOptimizer with paths and tuner instances.
+        
+        Args:
+            data_path (str): Path to the split data file.
+            tuners (list): List of tuner instances to optimize.
+        """
+        self.data_path = Path(data_path)
+        
+        if not self.data_path.exists():
+            raise FileNotFoundError(f"Data file not found at {self.data_path}")
+        
+        self.tuner_instances = tuners
+        self.optimization_results = {}
+        self.best_models = {}
+        
+        
+    def optimize_models(self):
+        """
+        Run hyperparameter optimization for all tuners
+        """
+        logger.info("Starting hyperparameter optimization...")
+        
+        for i, tuner in enumerate(self.tuner_instances):
+            model_name = f"{tuner.model_class.__name__}_{tuner.target}"
+            
+            logger.info(f"\n🔍 Optimizing {model_name} ({i+1}/{len(self.tuner_instances)})")
+            logger.info(f"   Target: {tuner.target}")
+            logger.info(f"   Trials: {tuner.n_trials}")
+            logger.info(f"   CV Folds: {tuner.cv_folds}")
+            
+            try:
+                # Create study name with timestamp
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                study_name = f"{model_name}_{timestamp}"
+                
+                # Load data into tuner
+                tuner.load_data()
+                
+                # Run optimization
+                study = tuner.optimize(study_name=study_name)
+                
+                # Store results
+                self.optimization_results[model_name] = {
+                    'tuner': tuner,
+                    'study': study,
+                    'best_params': tuner.best_params,
+                    'best_score': tuner.best_score,
+                    'n_trials': len(study.trials),
+                    'best_trial': study.best_trial
+                }
+                
+                logger.info(f"   ✓ Optimization completed")
+                logger.info(f"   Best score: {tuner.best_score:.4f}")
+                logger.info(f"   Best params: {tuner.best_params}")
+                
+            except Exception as e:
+                logger.error(f"   ❌ Optimization failed for {model_name}: {e}")
+                continue
+        
+        logger.info(f"\n✓ Hyperparameter optimization completed for {len(self.optimization_results)} models")
+        
+    def create_best_models(self):
+        """
+        Create model instances with best hyperparameters
+        """
+        logger.info("\n🏗️ Creating models with best hyperparameters...")
+        
+        for model_name, results in self.optimization_results.items():
+            try:
+                tuner = results['tuner']
+                best_model = tuner.get_best_model()
+                
+                self.best_models[model_name] = best_model
+                
+                logger.info(f"   ✓ {model_name} created with optimized parameters")
+                
+            except Exception as e:
+                logger.error(f"   ❌ Failed to create {model_name}: {e}")
+        
+        logger.info(f"✓ {len(self.best_models)} optimized models created")
+        
+    def train_best_models(self):
+        """
+        Train the best models with their optimized hyperparameters
+        """
+        logger.info("\n🚀 Training models with best hyperparameters...")
+        
+        self.trained_results = {}
+        
+        for model_name, model in self.best_models.items():
+            try:
+                logger.info(f"   Training {model_name}...")
+                
+                # Get the corresponding tuner to access data
+                tuner = self.optimization_results[model_name]['tuner']
+                
+                # Load data into tuner
+                tuner.load_data(self.data_path)
+                
+                # Train the model
+                model.fit(tuner.X, tuner.y)
+                
+                # Evaluate on the same data (you might want to use separate test set)
+                metrics = model.evaluate(tuner.X, tuner.y)
+                
+                self.trained_results[model_name] = {
+                    'model': model,
+                    'metrics': metrics,
+                    'best_params': self.optimization_results[model_name]['best_params'],
+                    'best_score': self.optimization_results[model_name]['best_score']
+                }
+                
+                logger.info(f"   ✓ {model_name} trained successfully")
+                
+            except Exception as e:
+                logger.error(f"   ❌ Training failed for {model_name}: {e}")
+        
+        logger.info(f"✓ {len(self.trained_results)} models trained with optimal hyperparameters")
+        
+    def save_optimized_models(self):
+        """Save all optimized models"""
+        logger.info(f"\n💾 Saving optimized models...")
+        
+        saved_count = 0
+        
+        for model_name, results in self.trained_results.items():
+            try:
+                model = results['model']
+                model_path = model.save_model()
+                
+                # Also save the optimization results
+                optimization_info = {
+                    'best_params': results['best_params'],
+                    'best_score': results['best_score'],
+                    'optimization_date': datetime.now().isoformat(),
+                    'model_path': str(model_path)
+                }
+                
+                # Save optimization info alongside the model
+                info_path = model_path.parent / f"{model_path.stem}_optimization_info.json"
+                import json
+                with open(info_path, 'w') as f:
+                    json.dump(optimization_info, f, indent=2)
+                
+                logger.info(f"  ✓ {model_name} saved to {model_path}")
+                logger.info(f"  ✓ Optimization info saved to {info_path}")
+                saved_count += 1
+                
+            except Exception as e:
+                logger.error(f"  ❌ Error saving {model_name}: {e}")
+        
+        logger.info(f"✓ {saved_count} optimized models saved successfully")
+        return saved_count
+    
+    def print_optimization_summary(self):
+        """Print detailed optimization results summary"""
+        if not self.optimization_results:
+            logger.error("❌ No optimization results to display")
+            return
+        
+        logger.info("\n" + "="*100)
+        logger.info("HYPERPARAMETER OPTIMIZATION RESULTS SUMMARY")
+        logger.info("="*100)
+        
+        # Create DataFrame to display results
+        summary_data = []
+        for model_name, results in self.optimization_results.items():
+            tuner = results['tuner']
+            best_trial = results['best_trial']
+            
+            summary_data.append({
+                'Model': model_name.replace('_', ' '),
+                'Target': tuner.target,
+                'Best Score': f"{results['best_score']:.4f}",
+                'Trials Completed': results['n_trials'],
+                'Best Trial #': best_trial.number,
+                'CV Folds': tuner.cv_folds,
+                'Direction': tuner.direction
+            })
+        
+        df_summary = pd.DataFrame(summary_data)
+        logger.info("\n" + df_summary.to_string(index=False))
+        
+        # Show best parameters for each model
+        logger.info("\n" + "="*100)
+        logger.info("BEST HYPERPARAMETERS")
+        logger.info("="*100)
+        
+        for model_name, results in self.optimization_results.items():
+            logger.info(f"\n🏆 {model_name}:")
+            for param, value in results['best_params'].items():
+                logger.info(f"   {param}: {value}")
+                
+    def get_best_model_overall(self):
+        """Get the overall best model across all optimizations"""
+        if not self.optimization_results:
+            return None
+        
+        # Find best model based on optimization score
+        best_model_name = min(self.optimization_results.keys(), 
+                            key=lambda x: self.optimization_results[x]['best_score'])
+        
+        return best_model_name, self.optimization_results[best_model_name]
 
-def main():
+def main(target_filter='both'):
     """Main function to execute the training pipeline"""
     logger.info("🚀 Starting model training pipeline")
     logger.info("="*50)
     
     # Initialize trainer
-    fare_amount_trainer = ModelTrainer(FARE_MODEL_DATA_FILE, 
-                           [LinearRegressionModel(output_path=BASELINE_MODEL_PATH, target='fare_amount'),
-                            DecisionTreeModel(output_path=BASELINE_MODEL_PATH, target='fare_amount'),
-                            XGBoostModel(output_path=ADVANCED_MODEL_PATH, target='fare_amount'),
-                            RandomForestModel(output_path=ADVANCED_MODEL_PATH, target='fare_amount')
-                            ])
+    trainers = []
+    if target_filter in ['fare', 'both']:
+        fare_amount_trainer = ModelTrainer(FARE_MODEL_DATA_FILE, 
+                            [LinearRegressionModel(output_path=BASELINE_MODEL_PATH, target='fare_amount'),
+                                DecisionTreeModel(output_path=BASELINE_MODEL_PATH, target='fare_amount'),
+                                XGBoostModel(output_path=ADVANCED_MODEL_PATH, target='fare_amount'),
+                                RandomForestModel(output_path=ADVANCED_MODEL_PATH, target='fare_amount')
+                                ])
+        trainers.append(('Fare Amount', fare_amount_trainer))
     
-    trip_duration_trainer = ModelTrainer(DURATION_MODEL_DATA_FILE, 
-                           [LinearRegressionModel(output_path=BASELINE_MODEL_PATH, target='trip_duration_minutes'),
-                            DecisionTreeModel(output_path=BASELINE_MODEL_PATH, target='trip_duration_minutes'),
-                            XGBoostModel(output_path=ADVANCED_MODEL_PATH, target='trip_duration_minutes'),
-                            RandomForestModel(output_path=ADVANCED_MODEL_PATH, target='trip_duration_minutes')
-                            ])
+    if target_filter in ['duration', 'both']:
+        trip_duration_trainer = ModelTrainer(DURATION_MODEL_DATA_FILE, 
+                            [LinearRegressionModel(output_path=BASELINE_MODEL_PATH, target='trip_duration_minutes'),
+                                DecisionTreeModel(output_path=BASELINE_MODEL_PATH, target='trip_duration_minutes'),
+                                XGBoostModel(output_path=ADVANCED_MODEL_PATH, target='trip_duration_minutes'),
+                                RandomForestModel(output_path=ADVANCED_MODEL_PATH, target='trip_duration_minutes')
+                                ])
+        trainers.append(('Trip Duration', trip_duration_trainer))
     
-    for trainer in [fare_amount_trainer, trip_duration_trainer]:
+    for target_name, trainer in trainers:
+        logger.info(f"\n🎯 Training models for {target_name}")
         # Load data
         if not trainer.load_data():
-            logger.error("❌ Failed to load data. Exiting...")
-            return
+            logger.error(f"❌ Failed to load data for {target_name}. Skipping...")
+            continue
         
         # Train models
         trainer.train_model()
@@ -222,12 +442,137 @@ def main():
         # Save models
         trainer.save_trained_models()
         
-        # Get best model
-        best_name, best_model = trainer.get_best_model()
-        if best_model:
-            logger.info(f"\n💡 Consider using '{best_name}' for production")
-    
     logger.info("\n✅ Training pipeline completed successfully!")
+    
+def main_optimization(target_filter='both', n_trials=100, cv_folds=5):
+    """Main function to execute the hyperparameter optimization pipeline"""
+    logger.info("🔍 Starting hyperparameter optimization pipeline")
+    logger.info("="*60)
+    
+    optimization_configs = []
+    
+    # Define tuners for fare amount models
+    if target_filter in ['fare', 'both']:
+        fare_tuners = [
+            LinearRegressionTuner(
+                data_path=FARE_MODEL_DATA_FILE,
+                output_path=BASELINE_MODEL_PATH,
+                target='fare_amount',
+                n_trials=10  # Reduced for LinearRegression as it has few params
+            ),
+            DecisionTreeTuner(
+                data_path=FARE_MODEL_DATA_FILE,
+                output_path=BASELINE_MODEL_PATH,
+                target='fare_amount',
+                n_trials=100
+            ),
+            XGBoostTuner(
+                data_path=FARE_MODEL_DATA_FILE,
+                output_path=ADVANCED_MODEL_PATH,
+                target='fare_amount',
+                n_trials=150
+            ),
+            RandomForestTuner(
+                data_path=FARE_MODEL_DATA_FILE,
+                output_path=ADVANCED_MODEL_PATH,
+                target='fare_amount',
+                n_trials=100
+            )
+        ]
+        optimization_configs.append(('Fare Amount', fare_tuners))
+    
+    # Define tuners for trip duration models
+    if target_filter in ['duration', 'both']:
+        duration_tuners = [
+            LinearRegressionTuner(
+                data_path=DURATION_MODEL_DATA_FILE,
+                output_path=BASELINE_MODEL_PATH,
+                target='trip_duration_minutes',
+                n_trials=50
+            ),
+            DecisionTreeTuner(
+                data_path=DURATION_MODEL_DATA_FILE,
+                output_path=BASELINE_MODEL_PATH,
+                target='trip_duration_minutes',
+                n_trials=100
+            ),
+            XGBoostTuner(
+                data_path=DURATION_MODEL_DATA_FILE,
+                output_path=ADVANCED_MODEL_PATH,
+                target='trip_duration_minutes',
+                n_trials=150
+            ),
+            RandomForestTuner(
+                data_path=DURATION_MODEL_DATA_FILE,
+                output_path=ADVANCED_MODEL_PATH,
+                target='trip_duration_minutes',
+                n_trials=100
+            )
+        ]
+        optimization_configs.append(("Trip Duration", duration_tuners))
+    
+    # Run optimization for both targets
+    for target_name, tuners in optimization_configs:
+        logger.info(f"\n🎯 Optimizing models for {target_name}")
+        logger.info("="*60)
+        
+        # Initialize optimizer
+        optimizer = HyperparameterOptimizer(tuners[0].data_path, tuners)
+        
+        # Run optimization
+        optimizer.optimize_models()
+        
+        # Create and train best models
+        optimizer.create_best_models()
+        optimizer.train_best_models()
+        
+        # Show results
+        optimizer.print_optimization_summary()
+        
+        # Save optimized models
+        optimizer.save_optimized_models()
+        
+        # Get overall best model for this target
+        best_model_name, best_results = optimizer.get_best_model_overall()
+        logger.info(f"\n🏆 BEST {target_name.upper()} MODEL: {best_model_name}")
+        logger.info(f"   Best Score: {best_results['best_score']:.4f}")
+    
+    logger.info("\n✅ Hyperparameter optimization pipeline completed successfully!")
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description='NYC Taxi Model Training and Optimization Pipeline')
+    
+    parser.add_argument(
+        '--mode', 
+        choices=['train', 'optimize'], 
+        default='train',
+        help='Choose between training baseline models (train) or optimizing hyperparameters (optimize)'
+    )
+    parser.add_argument(
+        '--target',
+        choices=['fare', 'duration', 'both'],
+        default='both',
+        help='Choose target variable: fare_amount (fare), trip_duration_minutes (duration), or both'
+    )
+    parser.add_argument(
+        '--trials',
+        type=int,
+        default=100,
+        help='Number of optimization trials (only for optimize mode)'
+    )
+    parser.add_argument(
+        '--cv-folds',
+        type=int,
+        default=5,
+        help='Number of cross-validation folds (only for optimize mode)'
+    )
+    
+    args = parser.parse_args()
+    
+    if args.mode == 'train':
+        logger.info(f"🚀 Running in TRAINING mode for target: {args.target}")
+        main(target_filter=args.target)
+    elif args.mode == 'optimize':
+        logger.info(f"🔍 Running in OPTIMIZATION mode for target: {args.target}")
+        logger.info(f"   Trials: {args.trials}, CV Folds: {args.cv_folds}")
+        main_optimization(target_filter=args.target, n_trials=args.trials, cv_folds=args.cv_folds)

@@ -9,33 +9,72 @@ from src.config.settings import RANDOM_STATE
 from src.evaluation.metrics import calculate_metrics
 
 class XGBoostModel(BaseModel):
-    def __init__(self, output_path:str,target: str = 'fare_amount'):
+    def __init__(self, output_path:str,target: str = 'fare_amount',
+                 n_estimators: int = 200,
+                 max_depth: int = 8,
+                 learning_rate: float = 0.05,
+                 subsample: float = 0.85,
+                 colsample_bytree: float = 0.85,
+                 colsample_bylevel: float = 0.8,
+                 min_child_weight: int = 3,
+                 gamma: float = 0.1,
+                 reg_alpha: float = 0.1,
+                 reg_lambda: float = 1.0,
+                 tree_method: str = 'hist',
+                 grow_policy: str = 'depthwise',
+                 max_leaves: int = 0,
+                 **kwargs):
         """
             Initialize the XGBoost Model
             Args:
                 output_path (str): Path where the model will be saved
                 target (str): Target variable
+                n_estimators (int): Number of boosting rounds
+                max_depth (int): Maximum depth of trees
+                learning_rate (float): Learning rate
+                subsample (float): Subsample ratio of training instances
+                colsample_bytree (float): Subsample ratio of columns when constructing each tree
+                colsample_bylevel (float): Subsample ratio of columns for each level
+                min_child_weight (int): Minimum sum of instance weight needed in a child
+                gamma (float): Minimum loss reduction required to make a further partition
+                reg_alpha (float): L1 regularization term on weights
+                reg_lambda (float): L2 regularization term on weights
+                tree_method (str): Tree construction algorithm
+                grow_policy (str): Tree growing policy
+                max_leaves (int): Maximum number of leaves; 0 indicates no limit
         """
         super().__init__('xgboost', target, output_path, model_type='advanced')
-        self.model = XGBRegressor(
-            n_estimators=200, 
-            max_depth=8, 
-            learning_rate=0.05,
-            subsample=0.85,
-            colsample_bytree=0.85,
-            colsample_bylevel=0.8,
-            min_child_weight=3,
-            gamma=0.1,
-            reg_alpha=0.1,
-            reg_lambda=1.0,
-            tree_method='hist',
-            objective='reg:squarederror',
-            eval_metric='rmse',
-            n_jobs=-1,
-            early_stopping_rounds=20,
-            random_state=RANDOM_STATE,
-            verbosity=0
-        )
+        
+        # Handle max_leaves parameter (XGBoost uses 0 for unlimited)
+        xgb_params = {
+            'n_estimators': n_estimators,
+            'max_depth': max_depth,
+            'learning_rate': learning_rate,
+            'subsample': subsample,
+            'colsample_bytree': colsample_bytree,
+            'colsample_bylevel': colsample_bylevel,
+            'min_child_weight': min_child_weight,
+            'gamma': gamma,
+            'reg_alpha': reg_alpha,
+            'reg_lambda': reg_lambda,
+            'tree_method': tree_method,
+            'objective': 'reg:squarederror',
+            'eval_metric': 'rmse',
+            'n_jobs': -1,
+            'random_state': RANDOM_STATE,
+            'verbosity': 0
+        }
+        
+        # Add grow_policy and max_leaves only if tree_method supports them
+        if tree_method in ['hist', 'gpu_hist']:
+            xgb_params['grow_policy'] = grow_policy
+            if max_leaves > 0:
+                xgb_params['max_leaves'] = max_leaves
+        
+        # Merge with any additional kwargs
+        xgb_params.update(kwargs)
+        
+        self.model = XGBRegressor(**xgb_params)
     
     def _prepare_features(self, data: pd.DataFrame) -> pd.DataFrame:
         """Feature preparation specific to XGBoost"""
@@ -105,22 +144,69 @@ class XGBoostModel(BaseModel):
         return importance_df
 
 class RandomForestModel(BaseModel):
-    def __init__(self, output_path:str,target: str = 'fare_amount'):
-        super().__init__('random_forest', target, output_path, model_type='advanced')
-        self.model = RandomForestRegressor(
-            n_estimators=100, 
-            max_depth=10,
-            min_samples_split=5,
-            min_samples_leaf=2,
-            max_features='sqrt',
-            oob_score=True,  # Configurar aquí directamente
-            bootstrap=True,  # Asegurar bootstrap para OOB
-            random_state=RANDOM_STATE,
-            n_jobs=-1,
-            warm_start=False,  # Para posibles entrenamientos incrementales
-            verbose=0
-        )
+    def __init__(self, output_path:str,target: str = 'fare_amount',
+                 n_estimators: int = 100,
+                 max_depth: int = 10,
+                 min_samples_split: int = 5,
+                 min_samples_leaf: int = 2,
+                 max_features: str = 'sqrt',
+                 max_samples: float = None,
+                 bootstrap: bool = True,
+                 oob_score: bool = True,
+                 criterion: str = 'squared_error',
+                 min_impurity_decrease: float = 0.0,
+                 min_weight_fraction_leaf: float = 0.0,
+                 max_leaf_nodes: int = None,
+                 **kwargs):
         
+        """
+            Initialize the Random Forest Model
+            Args:
+                output_path (str): Path where the model will be saved
+                target (str): Target variable
+                n_estimators (int): Number of trees in the forest
+                max_depth (int): Maximum depth of the trees
+                min_samples_split (int): Minimum samples required to split a node
+                min_samples_leaf (int): Minimum samples required at a leaf node
+                max_features (str): Number of features to consider when looking for the best split
+                max_samples (float): Number of samples to draw from X to train each base estimator
+                bootstrap (bool): Whether bootstrap samples are used when building trees
+                oob_score (bool): Whether to use out-of-bag samples to estimate the R^2
+                criterion (str): Function to measure quality of a split
+                min_impurity_decrease (float): Minimum impurity decrease required for split
+                min_weight_fraction_leaf (float): Minimum weighted fraction of sum total of weights
+                max_leaf_nodes (int): Maximum number of leaf nodes
+        """
+        
+        super().__init__('random_forest', target, output_path, model_type='advanced')
+        
+        rf_params = {
+            'n_estimators': n_estimators,
+            'max_depth': max_depth,
+            'min_samples_split': min_samples_split,
+            'min_samples_leaf': min_samples_leaf,
+            'max_features': max_features,
+            'bootstrap': bootstrap,
+            'oob_score': oob_score,
+            'criterion': criterion,
+            'min_impurity_decrease': min_impurity_decrease,
+            'min_weight_fraction_leaf': min_weight_fraction_leaf,
+            'random_state': RANDOM_STATE,
+            'n_jobs': -1,
+            'warm_start': False,
+            'verbose': 0
+        }
+        
+        # Add optional parameters if provided
+        if max_samples is not None:
+            rf_params['max_samples'] = max_samples
+        if max_leaf_nodes is not None:
+            rf_params['max_leaf_nodes'] = max_leaf_nodes
+            
+        # Merge with any additional kwargs
+        rf_params.update(kwargs)
+        
+        self.model = RandomForestRegressor(**rf_params)
         self.oob_score_ = None
     
     def _prepare_features(self, data: pd.DataFrame) -> pd.DataFrame:

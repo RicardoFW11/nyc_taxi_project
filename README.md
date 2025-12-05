@@ -258,6 +258,7 @@ This will:
 
 ```bash
 python src/pipelines/train_model.py --model xgboost --target fare_amount
+py -m src.pipelines.train_model --mode optimize --target fare 
 ```
 
 Options:
