@@ -44,7 +44,8 @@ async def startup_event():
     """Load model when API starts"""
     global predictor
     try:
-        predictor = FarePredictor(model_name="linear_fare.pkl")
+        #predictor = FarePredictor(model_name="linear_fare.pkl")
+        predictor = FarePredictor(model_name="xgboost_fare.pkl")
         print("🚀 API started successfully!")
     except Exception as e:
         print(f"❌ Error loading model: {str(e)}")

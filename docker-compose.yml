@@ -1,0 +1,40 @@
+services:
+  # 1. Servicio de Entrenamiento
+  train_xgboost:
+    build:
+      context: .
+      dockerfile: src/docker/Dockerfile.train  
+    volumes:
+      - ./data:/app/data
+      - ./models:/app/models
+    environment:
+      - PYTHONPATH=/app
+    command: python src/pipelines/train_model.py --model xgboost
+
+  # 2. Servicio de API
+  api:
+    build:
+      context: .
+      dockerfile: src/docker/Dockerfile.api   
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./models:/app/models
+    environment:
+      - PYTHONPATH=/app
+    depends_on:
+      - train_xgboost
+
+  # 3. Servicio de UI
+  ui:
+    build:
+      context: .
+      dockerfile: src/docker/Dockerfile.ui    
+    ports:
+      - "8501:8501"
+    environment:
+      - PYTHONPATH=/app
+      # Para Docker, usamos el nombre del servicio "api" como host
+      - API_URL=http://api:8000
+    depends_on:
+      - api

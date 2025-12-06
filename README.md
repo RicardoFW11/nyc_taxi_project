@@ -1,29 +1,31 @@
 # 🚕 NYC Taxi Fare & Duration Prediction
 
-[![Python](https://img.shields.io/badge/Python-3.8%2B-blue.svg)](https://www.python.org/)
+[![Python](https://img.shields.io/badge/Python-3.9%2B-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.104%2B-green.svg)](https://fastapi.tiangolo.com/)
+[![Streamlit](https://img.shields.io/badge/Streamlit-1.28%2B-red.svg)](https://streamlit.io/)
 [![Docker](https://img.shields.io/badge/Docker-Ready-blue.svg)](https://www.docker.com/)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
-Machine Learning project for predicting taxi fare amounts and trip durations in New York City using real-world data from the NYC Taxi & Limousine Commission (TLC).
+Machine Learning project for predicting taxi fare amounts and trip durations in New York City using real-world data from the NYC Taxi & Limousine Commission (TLC). This project demonstrates a complete MLOps lifecycle, from data ingestion to containerized deployment.
 
 ---
 
 ## 📋 Table of Contents
 
 - [Overview](#-overview)
+- [System Architecture](#-system-architecture)
 - [Features](#-features)
-- [Quick Start Guide](#-quick-start-guide)
 - [Project Structure](#-project-structure)
+- [Quick Start Guide](#-quick-start-guide)
 - [Dataset](#-dataset)
 - [Installation](#-installation)
-- [Usage](#-usage)
-- [Model Development](#-model-development)
-- [API Documentation](#-api-documentation)
+- [Usage (Local)](#-usage-local)
 - [Docker Deployment](#-docker-deployment)
+- [API Documentation](#-api-documentation)
 - [Results](#-results)
 - [Contributing](#-contributing)
 - [License](#-license)
+
 
 ---
 
@@ -41,11 +43,12 @@ The models leverage various features including:
 - Engineered features (distance, time-based features, etc.)
 - *(Optional)* External data such as weather conditions and traffic
 
+
 ### 🔄 System Architecture
 
 ```
 ┌─────────────┐      ┌──────────────┐      ┌─────────────┐
-│  Raw Data   │──────▶│  Processing  │──────▶│   Trained   │
+│  Raw Data   │────▶│  Processing  │─────▶│   Trained   │
 │ (Parquet)   │      │   Pipeline   │      │    Model    │
 └─────────────┘      └──────────────┘      └──────┬──────┘
                                                     │
@@ -56,6 +59,18 @@ The models leverage various features including:
 └─────────────┘      └──────────────┘      └─────────────┘
      (UI)              (Backend)              (Inference)
 ```
+
+The project follows a microservices architecture orchestrated by Docker:
+
+```mermaid
+graph LR
+    A[Raw Data] --> B(Processing Pipeline)
+    B --> C{Model Training}
+    C -->|Option 1| D[Baseline: Linear Reg]
+    C -->|Option 2| E[Advanced: XGBoost]
+    D & E --> F[Model Artifacts .pkl]
+    F --> G[FastAPI Backend]
+    G --> H[Streamlit Frontend]
 
 ### 🏆 Project Goals
 
@@ -74,12 +89,15 @@ The models leverage various features including:
 ✅ **Feature Engineering** - Distance calculation, temporal features, zone mapping  
 ✅ **Multiple Models** - Baseline and advanced ML algorithms  
 ✅ **Model Comparison** - Systematic evaluation of MAE, MSE, RMSE, training/inference time  
-✅ **REST API** - FastAPI-based service for real-time predictions  
-✅ **Web Interface** - Streamlit app for easy fare predictions  
-✅ **Interactive Docs** - Auto-generated API documentation with Swagger UI  
-✅ **Docker Support** - Full containerization for training and deployment  
-✅ **Clean Architecture** - Modular design following SOLID principles  
+✅ **REST API** - FastAPI-based service for real-time predictions with Swagger UI.  
+✅ **Interactive UI** - Streamlit app for easy user interaction and visualization.  
+✅ **Docker Ecosystem** - Multi-container orchestration (Training -> API -> UI) using Docker Compose.  
+✅ **Clean Architecture** - Modular design separating configuration, data, models, and presentation layers.  
 ✅ **Unit Tests** - Test coverage for critical components  
+✅ **End-to-End Pipeline** - Automated data ingestion, cleaning, and feature engineering. 
+✅ **Hybrid Modeling** - Switch between Baseline (Linear) and Advanced (XGBoost) models with a single flag. 
+✅ **Robust Error Handling** - Comprehensive validation using Pydantic schemas. 
+
 
 ---
 
@@ -90,74 +108,49 @@ nyc_taxi_project/
 │
 ├── README.md                    # Project documentation
 ├── requirements.txt             # Python dependencies
-├── streamlit_app.py             # Web interface for predictions
-├── .env.example                 # Environment variables template
+├── docker-compose.yml           # Docker orchestration
 ├── .gitignore                   # Git ignore rules
-├── .dockerignore                # Docker ignore rules
-│
-├── docker/                      # Docker configuration
-│   ├── Dockerfile.api           # API service container
-│   ├── Dockerfile.train         # Training container
-│   └── start.sh                 # Container startup script
-│
-├── notebooks/                   # Jupyter notebooks for exploration
-│   ├── eda.ipynb                # Exploratory Data Analysis
-│   ├── 02_feature_engineering.ipynb
-│   └── 03_model_experiments.ipynb
 │
 ├── data/                        # Data directory (gitignored)
 │   ├── raw/                     # Original TLC parquet files
-│   ├── processed/               # Cleaned and feature-engineered data
-│   └── external/                # External data (weather, traffic, etc.)
-│
-├── models/                      # Trained model artifacts (gitignored)
-│   ├── baseline/                # Simple models (LR, DT)
-│   └── advanced/                # Complex models (XGBoost, MLP)
+│   └── processed/               # Cleaned and feature-engineered data
 │
 ├── src/                         # Source code
 │   │
-│   ├── configs/                 # Configuration management
-│   │   ├── settings.py          # Global settings
-│   │   └── paths.py             # Path management (SRP)
-│   │
-│   ├── data/                    # Data handling modules
-│   │   ├── download.py          # Download NYC TLC datasets
-│   │   ├── preprocess.py        # Data cleaning and validation
-│   │   └── features.py          # Feature engineering
-│   │
-│   ├── models/                  # Model definitions
-│   │   ├── baseline.py          # Linear Regression, Decision Trees
-│   │   ├── advanced.py          # XGBoost, Random Forest, MLP
-│   │   └── trainer.py           # Training pipeline orchestration
-│   │
-│   ├── evaluation/              # Model evaluation
-│   │   ├── metrics.py           # MAE, MSE, RMSE calculations
-│   │   └── validator.py         # Cross-validation and testing
-│   │
 │   ├── api/                     # FastAPI application
 │   │   ├── app.py               # API endpoints
-│   │   ├── schemas.py           # Pydantic models for validation
-│   │   └── predictor.py         # Model loading and inference
+│   │   ├── schemas.py           # Pydantic models
+│   │   └── predictor.py         # Inference logic
 │   │
-│   ├── utils/                   # Utility functions
-│   │   ├── io.py                # File I/O operations
-│   │   ├── logging.py           # Logging configuration
-│   │   └── timer.py             # Performance timing
+│   ├── config/                  # Configuration management
+│   │   └── settings.py          # Global settings (Paths, Params)
 │   │
-│   └── pipelines/               # End-to-end pipelines
-│       ├── build_dataset.py     # Data preparation pipeline
-│       └── train_model.py       # Model training pipeline
+│   ├── data/                    # Data handling modules
+│   │   ├── preprocess.py        # Cleaning logic
+│   │   └── features.py          # Feature engineering
+│   │
+│   ├── docker/                  # Dockerfiles
+│   │   ├── Dockerfile.api       # API container
+│   │   ├── Dockerfile.train     # Training container
+│   │   └── Dockerfile.ui        # Streamlit container
+│   │
+│   ├── evaluation/              # Metrics calculation
+│   │   └── metrics.py           # MAE, MSE, RMSE
+│   │
+│   ├── models/                  # Model definitions
+│   │   ├── baseline.py          # Linear Regression wrapper
+│   │   └── advanced.py          # XGBoost wrapper
+│   │
+│   ├── pipelines/               # Execution pipelines
+│   │   ├── build_dataset.py     # ETL Pipeline
+│   │   └── train_model.py       # Training Pipeline
+│   │
+│   └── streamlit_app.py         # Frontend application
 │
-├── tests/                       # Unit tests
-│   ├── test_preprocessing.py
-│   ├── test_features.py
-│   ├── test_api.py
-│   └── test_model.py
-│
-└── deployment/                  # Deployment configuration
-    ├── docker-compose.yml       # Multi-container orchestration
-    ├── api.yaml                 # API deployment config
-    └── Makefile                 # Deployment shortcuts
+└── models/                      # Trained model artifacts (gitignored)
+    ├── baseline/                # Linear Regression artifacts
+    └── advanced/                # XGBoost artifacts
+
 ```
 
 ### 🧩 Architecture Design Principles
@@ -368,30 +361,52 @@ print(response.json())
 
 ## 🚀 Quick Start Guide
 
-### End-to-End Demo in 3 Steps
+### Option A: The "Docker Way" 🐳
 
-**Step 1: Prepare the data and train the model**
-
-```bash
-# Build processed dataset
-python src/pipelines/build_dataset.py
-
-# Train baseline model
-python src/pipelines/train_model.py
-```
-
-**Step 2: Start the API** (Terminal 1)
+**Run the entire ecosystem (Training + API + UI) with a single command. No Python installation required.**
 
 ```bash
-uvicorn src.api.app:app --reload --host 0.0.0.0 --port 8000
+# Build the docker ecosystem
+docker-compose up --build
 ```
 
-**Step 3: Launch the web interface** (Terminal 2)
+#Access the services:
 
-```bash
-streamlit run streamlit_app.py
-```
+Web App: http://localhost:8501
+API Docs: http://localhost:8000/docs
 
+
+**Option B: The "Local Way" (For Development) 💻**
+
+**1. Create Environment**
+```bash    
+    python -m venv venv
+
+    # Windows:
+    .\venv\Scripts\Activate
+
+    # Mac/Linux:
+
+    source venv/bin/activate
+    pip install -r requirements.txt
+
+
+**2. Prepare Data & Train**
+
+    # Download and process data
+    python src/pipelines/build_dataset.py
+
+    # Train Advanced Model (XGBoost)
+    python src/pipelines/train_model.py --model xgboost
+
+**3. Run Services**
+
+    # Terminal 1: Start API
+    uvicorn src.api.app:app --reload
+
+    # Terminal 2: Start UI
+    streamlit run src/streamlit_app.py
+  ```    
 **🎉 Done!** Open your browser at `http://localhost:8501` and start predicting fares!
 
 ---
@@ -402,7 +417,7 @@ streamlit run streamlit_app.py
 
 #### `POST /predict`
 
-Predict fare and duration for a single trip.
+Predict  fare and duration for a single trip.
 
 **Request Body**:
 ```json

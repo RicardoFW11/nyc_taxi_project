@@ -6,14 +6,14 @@ import streamlit as st
 import requests
 from datetime import datetime, time
 import json
-
+import os
 
 # ============================================
 # CONFIGURATION
 # ============================================
 
-API_URL = "http://localhost:8000"  # FastAPI endpoint
-
+#API_URL = "http://localhost:8000"  # FastAPI endpoint
+API_URL = os.getenv("API_URL", "http://localhost:8000")
 # Page config
 st.set_page_config(
     page_title="NYC Taxi Fare Predictor",

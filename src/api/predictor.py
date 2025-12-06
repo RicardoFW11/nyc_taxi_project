@@ -14,7 +14,7 @@ import joblib
 import pandas as pd
 
 from src.api.schemas import TripRequest
-from src.config.settings import BASELINE_MODELS_DIR, MODEL_FEATURES
+from src.config.settings import BASELINE_MODELS_DIR, ADVANCED_MODELS_DIR, MODEL_FEATURES
 
 
 class FarePredictor:
@@ -22,14 +22,17 @@ class FarePredictor:
     Loads trained model and makes fare predictions
     """
 
+class FarePredictor:
     def __init__(self, model_name: str = "linear_fare.pkl"):
-        """
-        Initialize predictor and load model
-
-        Args:
-            model_name: Name of the model file in baseline models directory
-        """
-        self.model_path = BASELINE_MODELS_DIR / model_name
+        # Lógica inteligente para encontrar el modelo
+        if (BASELINE_MODELS_DIR / model_name).exists():
+            self.model_path = BASELINE_MODELS_DIR / model_name
+        elif (ADVANCED_MODELS_DIR / model_name).exists():
+            self.model_path = ADVANCED_MODELS_DIR / model_name
+        else:
+            # Fallback por defecto
+            self.model_path = BASELINE_MODELS_DIR / "linear_fare.pkl"
+            
         self.model = None
         self.model_version = model_name.replace(".pkl", "_v1")
         self.load_model()
