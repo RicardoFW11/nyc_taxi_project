@@ -45,9 +45,9 @@ class LinearRegressionModel(BaseModel):
         predictions = self.predict(X)
         return calculate_metrics(y, predictions)
     
-    def get_params(self):
+    def get_params(self, deep=True):
         """Return model parameters"""
-        return self.model.get_params()
+        return self.model.get_params(deep=deep)
         
 class DecisionTreeModel(BaseModel):
     def __init__(self, output_path:str,target: str = 'fare_amount',
@@ -105,6 +105,6 @@ class DecisionTreeModel(BaseModel):
         predictions = self.predict(X)
         return calculate_metrics(y, predictions)
     
-    def get_params(self):
+    def get_params(self, deep=True):
         """Return model parameters"""
-        return self.model.get_params()
+        return self.model.get_params(deep=deep)

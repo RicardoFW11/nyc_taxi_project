@@ -33,7 +33,7 @@ class BaseModel(ABC):
     def predict(self, X: pd.DataFrame) -> np.ndarray:
         pass
     
-    def get_params(self) -> Dict[str, float]:
+    def get_params(self, deep=True) -> Dict[str, float]:
         """Return model parameters"""
         pass
     
