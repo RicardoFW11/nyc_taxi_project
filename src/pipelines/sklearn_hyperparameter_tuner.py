@@ -51,8 +51,7 @@ class SklearnHyperparameterTuner(ABC):
                  target: str = 'fare_amount',
                  cv_folds: int = 3,  # Reduced default for speed
                  method: Union[str, OptimizationMethod] = OptimizationMethod.RANDOM_SEARCH,
-                 scoring: str = 'neg_mean_squared_error',
-                 n_trials: int = 100  # Number of trials for RandomizedSearchCV
+                 scoring: str = 'neg_mean_squared_error'
     ):
         self.data_path = Path(data_path)
         
@@ -66,7 +65,6 @@ class SklearnHyperparameterTuner(ABC):
         self.cv_folds = cv_folds
         self.scoring = scoring
         self.random_state = RANDOM_STATE
-        self.n_trials = n_trials
         
         # Convert string to enum if needed
         if isinstance(method, str):
@@ -179,8 +177,8 @@ class SklearnHyperparameterTuner(ABC):
             param_grid=param_grid,
             cv=self.cv_folds,
             scoring=self.scoring,
-            n_jobs=-1,
-            verbose=3,
+            n_jobs=18, # Adjust based on your system
+            verbose=2,
             error_score='raise'
         )
         
@@ -243,8 +241,7 @@ class LinearRegressionTuner(SklearnHyperparameterTuner):
                  target: str = 'fare_amount',
                  cv_folds: int = 3,
                  method: Union[str, OptimizationMethod] = OptimizationMethod.GRID_SEARCH,
-                 scoring: str = 'neg_mean_squared_error',
-                 n_trials: int = 100):
+                 scoring: str = 'neg_mean_squared_error'):
         super().__init__(
             model_class=LinearRegressionModel,
             data_path=data_path,
@@ -252,8 +249,7 @@ class LinearRegressionTuner(SklearnHyperparameterTuner):
             target=target,
             cv_folds=cv_folds,
             method=method,
-            scoring=scoring,
-            n_trials=n_trials
+            scoring=scoring
         )
         
     def suggest_hyperparameters(self) -> Dict[str, Any]:
@@ -279,8 +275,7 @@ class DecisionTreeTuner(SklearnHyperparameterTuner):
                  target: str = 'fare_amount',
                  cv_folds: int = 3,
                  method: Union[str, OptimizationMethod] = OptimizationMethod.RANDOM_SEARCH,
-                 scoring: str = 'neg_mean_squared_error',
-                 n_trials: int = 100):
+                 scoring: str = 'neg_mean_squared_error'):
         super().__init__(
             model_class=DecisionTreeModel,
             data_path=data_path,
@@ -288,8 +283,7 @@ class DecisionTreeTuner(SklearnHyperparameterTuner):
             target=target,
             cv_folds=cv_folds,
             method=method,
-            scoring=scoring,
-            n_trials=n_trials
+            scoring=scoring
         )
         
     def suggest_hyperparameters(self) -> Dict[str, Any]:
@@ -304,13 +298,13 @@ class DecisionTreeTuner(SklearnHyperparameterTuner):
     def _get_param_grid(self) -> Dict[str, Any]:
         """Parameter grid for GridSearch (smaller for speed)"""
         return {
-            'criterion': ['squared_error', 'friedman_mse', 'absolute_error', 'poisson'], # splitting criterion
+            'criterion': ['squared_error', 'friedman_mse'], # splitting criterion
             'splitter': ['best', 'random'], # splitting strategy
             'max_depth': [5, 7, 9], # depth of the tree
             'min_samples_split': [10, 20, 30], # min samples to split
-            'min_samples_leaf': [5, 10, 20], # min samples at leaf
+            'min_samples_leaf': [10, 20], # min samples at leaf
             'max_leaf_nodes': [10, 20, 30], # max leaf nodes
-            'min_impurity_decrease': [0.0, 0.01, 0.001], # min impurity decrease
+            'min_impurity_decrease': [0.01, 0.001], # min impurity decrease
             'max_features': ['sqrt', 'log2'] # max features
         }
         
@@ -323,8 +317,7 @@ class XGBoostTuner(SklearnHyperparameterTuner):
                  target: str = 'fare_amount',
                  cv_folds: int = 3,
                  method: Union[str, OptimizationMethod] = OptimizationMethod.RANDOM_SEARCH,
-                 scoring: str = 'neg_mean_squared_error',
-                 n_trials: int = 100):
+                 scoring: str = 'neg_mean_squared_error'):
         super().__init__(
             model_class=XGBoostModel,
             data_path=data_path,
@@ -332,8 +325,7 @@ class XGBoostTuner(SklearnHyperparameterTuner):
             target=target,
             cv_folds=cv_folds,
             method=method,
-            scoring=scoring,
-            n_trials=n_trials
+            scoring=scoring
         )
         
     def suggest_hyperparameters(self) -> Dict[str, Any]:
@@ -348,16 +340,16 @@ class XGBoostTuner(SklearnHyperparameterTuner):
     def _get_param_grid(self) -> Dict[str, Any]:
         """Parameter grid for GridSearch (very limited for speed)"""
         return {
-            'n_estimators': [50, 100], # number of trees
-            'max_depth': [6, 9, 12, 15], # depth of each tree
-            'learning_rate': [0.01, 0.1, 0.2, 0.25, 0.3], # step size
-            'subsample': [0.5, 0.7, 0.9], # row sampling
+            'n_estimators': [100], # number of trees
+            'max_depth': [6, 9, 12], # depth of each tree
+            'learning_rate': [0.01, 0.1], # step size
+            'subsample': [0.5, 0.9], # row sampling
             'colsample_bytree': [0.6, 0.8], # feature sampling
             'colsample_bylevel': [0.6, 0.8], # feature sampling per level
-            'min_child_weight': [5, 7, 9], # min sum hessian in leaf
-            'gamma': [0.2, 0.3, 0.5], # min loss reduction
-            'reg_alpha': [0.2, 0.3, 0.5], # L1 regularization
-            'reg_lambda': [0.5, 1.0, 1.5, 2.0], # L2 regularization
+            'min_child_weight': [5, 7], # min sum hessian in leaf
+            'gamma': [0.2, 0.5], # min loss reduction
+            'reg_alpha': [0.2, 0.5], # L1 regularization
+            'reg_lambda': [0.5, 1.5], # L2 regularization
             'tree_method': ['hist', 'exact', 'approx'] # tree construction method
         }    
     
@@ -370,8 +362,7 @@ class RandomForestTuner(SklearnHyperparameterTuner):
                  target: str = 'fare_amount',
                  cv_folds: int = 3,
                  method: Union[str, OptimizationMethod] = OptimizationMethod.RANDOM_SEARCH,
-                 scoring: str = 'neg_mean_squared_error',
-                 n_trials: int = 100):
+                 scoring: str = 'neg_mean_squared_error'):
         super().__init__(
             model_class=RandomForestModel,
             data_path=data_path,
@@ -379,8 +370,7 @@ class RandomForestTuner(SklearnHyperparameterTuner):
             target=target,
             cv_folds=cv_folds,
             method=method,
-            scoring=scoring,
-            n_trials=n_trials
+            scoring=scoring
         )
         
     def suggest_hyperparameters(self) -> Dict[str, Any]:
@@ -395,18 +385,16 @@ class RandomForestTuner(SklearnHyperparameterTuner):
     def _get_param_grid(self) -> Dict[str, Any]:
         """Parameter grid for GridSearch (limited for speed)"""
         return {
-            'n_estimators': [100, 150, 200],
+            'n_estimators': [100],
             'max_depth': [5, 7, 10],
             'min_samples_split': [2, 10, 20],
             'min_samples_leaf': [1, 5, 10],
             'max_features': ['sqrt', 'log2'],
             'max_samples': [0.5, 0.7, 0.9],
             'bootstrap': [True, False],
-            'criterion': ['squared_error', 'friedman_mse', 'absolute_error', 'poisson'],
-            'min_impurity_decrease': [0.0, 0.01, 0.001],
+            'criterion': ['squared_error', 'friedman_mse'],
+            'min_impurity_decrease': [0.01, 0.001],
             'min_weight_fraction_leaf': [0.0, 0.01, 0.05],
             'max_leaf_nodes': [10, 20, 30]
         }
-    
-    
     

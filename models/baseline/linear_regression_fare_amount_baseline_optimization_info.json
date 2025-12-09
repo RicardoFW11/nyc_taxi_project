@@ -1,0 +1,59 @@
+{
+  "best_params": {
+    "copy_X": true,
+    "fit_intercept": true,
+    "positive": true
+  },
+  "best_score": -2.4952085678078118,
+  "cv_results": {
+    "mean_fit_time": [
+      4.667394955952962
+    ],
+    "std_fit_time": [
+      0.006715374108095099
+    ],
+    "mean_score_time": [
+      0.1560049851735433
+    ],
+    "std_score_time": [
+      0.0010278570562932841
+    ],
+    "param_copy_X": [
+      true
+    ],
+    "param_fit_intercept": [
+      true
+    ],
+    "param_positive": [
+      true
+    ],
+    "params": [
+      {
+        "copy_X": true,
+        "fit_intercept": true,
+        "positive": true
+      }
+    ],
+    "split0_test_score": [
+      -2.48003958744724
+    ],
+    "split1_test_score": [
+      -2.5273450051557766
+    ],
+    "split2_test_score": [
+      -2.4782411108204183
+    ],
+    "mean_test_score": [
+      -2.4952085678078118
+    ],
+    "std_test_score": [
+      0.022735751341724158
+    ],
+    "rank_test_score": [
+      1
+    ]
+  },
+  "method": "grid_search",
+  "optimization_date": "2025-12-08T18:19:08.842671",
+  "model_path": "C:\\Users\\alexs\\Documents\\Github\\nyc_taxi_project\\models\\baseline\\linear_regression_fare_amount_baseline.pkl"
+}

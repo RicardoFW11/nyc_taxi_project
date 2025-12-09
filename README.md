@@ -34,11 +34,12 @@ This project builds end-to-end machine learning pipelines to predict:
 2. **Trip Duration** - The time duration of a trip in minutes
 
 The models leverage various features including:
+
 - Pick-up and drop-off locations (latitude/longitude)
 - Date and time information
 - Vendor ID, passenger count, payment type
 - Engineered features (distance, time-based features, etc.)
-- *(Optional)* External data such as weather conditions and traffic
+- _(Optional)_ External data such as weather conditions and traffic
 
 ### 🏆 Project Goals
 
@@ -60,7 +61,7 @@ The models leverage various features including:
 ✅ **REST API** - FastAPI-based service for real-time predictions  
 ✅ **Docker Support** - Full containerization for training and deployment  
 ✅ **Clean Architecture** - Modular design following SOLID principles  
-✅ **Unit Tests** - Test coverage for critical components  
+✅ **Unit Tests** - Test coverage for critical components
 
 ---
 
@@ -144,13 +145,13 @@ nyc_taxi_project/
 
 This project follows industry best practices:
 
-| Principle | Implementation |
-|-----------|----------------|
+| Principle                 | Implementation                                                             |
+| ------------------------- | -------------------------------------------------------------------------- |
 | **Single Responsibility** | Each module has one clear purpose (e.g., `preprocess.py` only cleans data) |
-| **Open/Closed** | New models can be added without modifying existing code |
-| **Liskov Substitution** | All models expose consistent `fit()` and `predict()` interfaces |
-| **Interface Segregation** | API, training, and data processing are independent |
-| **Dependency Inversion** | Configuration and paths are externalized, not hardcoded |
+| **Open/Closed**           | New models can be added without modifying existing code                    |
+| **Liskov Substitution**   | All models expose consistent `fit()` and `predict()` interfaces            |
+| **Interface Segregation** | API, training, and data processing are independent                         |
+| **Dependency Inversion**  | Configuration and paths are externalized, not hardcoded                    |
 
 ---
 
@@ -169,19 +170,20 @@ We use the **Yellow Taxi Trip Records** from the NYC Taxi & Limousine Commission
 
 Key features used in this project:
 
-| Feature | Description |
-|---------|-------------|
-| `VendorID` | Provider ID (1=Creative Mobile, 2=VeriFone) |
-| `tpep_pickup_datetime` | Pick-up date and time |
-| `tpep_dropoff_datetime` | Drop-off date and time |
-| `passenger_count` | Number of passengers |
-| `trip_distance` | Trip distance in miles |
-| `pickup_longitude/latitude` | GPS coordinates of pickup |
-| `dropoff_longitude/latitude` | GPS coordinates of dropoff |
-| `fare_amount` | **Target variable** - fare in USD |
-| `payment_type` | Payment method (1=Credit, 2=Cash, etc.) |
+| Feature                      | Description                                 |
+| ---------------------------- | ------------------------------------------- |
+| `VendorID`                   | Provider ID (1=Creative Mobile, 2=VeriFone) |
+| `tpep_pickup_datetime`       | Pick-up date and time                       |
+| `tpep_dropoff_datetime`      | Drop-off date and time                      |
+| `passenger_count`            | Number of passengers                        |
+| `trip_distance`              | Trip distance in miles                      |
+| `pickup_longitude/latitude`  | GPS coordinates of pickup                   |
+| `dropoff_longitude/latitude` | GPS coordinates of dropoff                  |
+| `fare_amount`                | **Target variable** - fare in USD           |
+| `payment_type`               | Payment method (1=Credit, 2=Cash, etc.)     |
 
 **Useful Resources**:
+
 - [Trip Record User Guide](https://www.nyc.gov/assets/tlc/downloads/pdf/trip_record_user_guide.pdf)
 - [Yellow Trips Data Dictionary](https://www.nyc.gov/assets/tlc/downloads/pdf/data_dictionary_trip_records_yellow.pdf)
 - [Taxi Zone Maps and Lookup Tables](https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page)
@@ -249,6 +251,7 @@ python src/pipelines/build_dataset.py
 ```
 
 This will:
+
 - Load raw data from `data/raw/`
 - Clean and validate the data
 - Engineer features
@@ -257,11 +260,14 @@ This will:
 ### 3. Model Training
 
 ```bash
-python src/pipelines/train_model.py --model xgboost --target fare_amount
-py -m src.pipelines.train_model --mode optimize --target fare --cv-folds 3
+py -m src.pipelines.train_model --mode optimize --target fare --cv-folds 3 --models baseline
+py -m src.pipelines.train_model --mode optimize --target fare --cv-folds 3 --models advanced
+py -m src.pipelines.train_model --mode optimize --target duration --cv-folds 3 --models baseline
+py -m src.pipelines.train_model --mode optimize --target duration --cv-folds 3 --models advanced
 ```
 
 Options:
+
 - `--model`: `linear`, `decision_tree`, `random_forest`, `xgboost`, `mlp`
 - `--target`: `fare_amount`, `trip_duration`, or `both`
 
@@ -314,6 +320,7 @@ Access the interactive API documentation at: `http://localhost:8000/docs`
 Predict fare and duration for a single trip.
 
 **Request Body**:
+
 ```json
 {
   "pickup_datetime": "2022-05-15T14:30:00",
@@ -328,9 +335,10 @@ Predict fare and duration for a single trip.
 ```
 
 **Response**:
+
 ```json
 {
-  "predicted_fare": 12.50,
+  "predicted_fare": 12.5,
   "predicted_duration": 15.3,
   "model_version": "xgboost_v1.0",
   "timestamp": "2024-11-28T10:30:00"
@@ -371,6 +379,7 @@ docker-compose up -d
 ```
 
 This will start:
+
 - API service on port 8000
 - (Optional) Database for storing predictions
 - (Optional) Monitoring dashboard
@@ -381,15 +390,15 @@ This will start:
 
 ### Model Comparison (May 2022 Dataset)
 
-| Model | Target | MAE | RMSE | Training Time | Inference (1k samples) |
-|-------|--------|-----|------|---------------|----------------------|
-| Linear Regression | Fare | 3.45 | 5.21 | 2.3s | 0.05s |
-| Decision Tree | Fare | 2.89 | 4.67 | 8.1s | 0.12s |
-| Random Forest | Fare | 2.34 | 3.98 | 145s | 0.89s |
-| **XGBoost** | **Fare** | **2.12** | **3.67** | **89s** | **0.34s** |
-| MLP | Fare | 2.45 | 4.01 | 234s | 0.45s |
+| Model             | Target   | MAE      | RMSE     | Training Time | Inference (1k samples) |
+| ----------------- | -------- | -------- | -------- | ------------- | ---------------------- |
+| Linear Regression | Fare     | 3.45     | 5.21     | 2.3s          | 0.05s                  |
+| Decision Tree     | Fare     | 2.89     | 4.67     | 8.1s          | 0.12s                  |
+| Random Forest     | Fare     | 2.34     | 3.98     | 145s          | 0.89s                  |
+| **XGBoost**       | **Fare** | **2.12** | **3.67** | **89s**       | **0.34s**              |
+| MLP               | Fare     | 2.45     | 4.01     | 234s          | 0.45s                  |
 
-*Results will vary based on your training configuration and data preprocessing*
+_Results will vary based on your training configuration and data preprocessing_
 
 ### Key Insights
 
@@ -484,4 +493,3 @@ For questions or feedback, please open an issue on GitHub.
 ---
 
 **Built with ❤️ using Python, FastAPI, XGBoost, and Docker**
-

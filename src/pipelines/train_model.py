@@ -286,7 +286,7 @@ class HyperparameterOptimizer:
                 tuner = self.optimization_results[model_name]['tuner']
                 
                 # Load data into tuner
-                tuner.load_data(self.data_path)
+                tuner.load_data()
                 
                 # Train the model
                 model.fit(tuner.X, tuner.y)
@@ -298,7 +298,9 @@ class HyperparameterOptimizer:
                     'model': model,
                     'metrics': metrics,
                     'best_params': self.optimization_results[model_name]['best_params'],
-                    'best_score': self.optimization_results[model_name]['best_score']
+                    'best_score': self.optimization_results[model_name]['best_score'],
+                    'cv_results': self.optimization_results[model_name]['cv_results'],
+                    'method': self.optimization_results[model_name]['method']
                 }
                 
                 logger.info(f"   ✓ {model_name} trained successfully")
@@ -308,6 +310,21 @@ class HyperparameterOptimizer:
         
         logger.info(f"✓ {len(self.trained_results)} models trained with optimal hyperparameters")
         
+    def _convert_numpy_to_native(self, obj):
+        """Convert numpy types to native Python types for JSON serialization"""
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        elif isinstance(obj, np.integer):
+            return int(obj)
+        elif isinstance(obj, np.floating):
+            return float(obj)
+        elif isinstance(obj, dict):
+            return {key: self._convert_numpy_to_native(value) for key, value in obj.items()}
+        elif isinstance(obj, list):
+            return [self._convert_numpy_to_native(item) for item in obj]
+        else:
+            return obj
+    
     def save_optimized_models(self):
         """Save all optimized models"""
         logger.info(f"\n💾 Saving optimized models...")
@@ -319,15 +336,21 @@ class HyperparameterOptimizer:
                 model = results['model']
                 model_path = model.save_model()
                 
+                # Convert cv_results to JSON-serializable format
+                cv_results_serializable = self._convert_numpy_to_native(results['cv_results'])
+                
                 # Also save the optimization results
                 optimization_info = {
                     'best_params': results['best_params'],
-                    'best_score': results['best_score'],
+                    'best_score': float(results['best_score']),
+                    'cv_results': cv_results_serializable,
+                    'method': results['method'],
                     'optimization_date': datetime.now().isoformat(),
                     'model_path': str(model_path)
                 }
                 
                 # Save optimization info alongside the model
+                model_path = Path(model_path)
                 info_path = model_path.parent / f"{model_path.stem}_optimization_info.json"
                 import json
                 with open(info_path, 'w') as f:
@@ -357,16 +380,12 @@ class HyperparameterOptimizer:
         summary_data = []
         for model_name, results in self.optimization_results.items():
             tuner = results['tuner']
-            best_trial = results['best_trial']
             
             summary_data.append({
                 'Model': model_name.replace('_', ' '),
                 'Target': tuner.target,
                 'Best Score': f"{results['best_score']:.4f}",
-                'Trials Completed': results['n_trials'],
-                'Best Trial #': best_trial.number,
-                'CV Folds': tuner.cv_folds,
-                'Direction': tuner.direction
+                'CV Folds': tuner.cv_folds
             })
         
         df_summary = pd.DataFrame(summary_data)
@@ -436,7 +455,7 @@ def main(target_filter='both'):
         
     logger.info("\n✅ Training pipeline completed successfully!")
     
-def main_optimization(target_filter='both', cv_folds=5):
+def main_optimization(target_filter='both', cv_folds=5, models='baseline'):
     """Main function to execute the hyperparameter optimization pipeline"""
     logger.info("🔍 Starting hyperparameter optimization pipeline")
     logger.info("="*60)
@@ -445,69 +464,81 @@ def main_optimization(target_filter='both', cv_folds=5):
     
     # Define tuners for fare amount models
     if target_filter in ['fare', 'both']:
-        fare_tuners = [
-            LinearRegressionTuner(
-                data_path=FARE_MODEL_DATA_FILE,
-                output_path=BASELINE_MODEL_PATH,
-                target='fare_amount',
-                method='grid_search',
-                cv_folds=cv_folds
-            ),
-            DecisionTreeTuner(
-                data_path=FARE_MODEL_DATA_FILE,
-                output_path=BASELINE_MODEL_PATH,
-                target='fare_amount',
-                method='grid_search',
-                cv_folds=cv_folds
-            ),
-            XGBoostTuner(
-                data_path=FARE_MODEL_DATA_FILE,
-                output_path=ADVANCED_MODEL_PATH,
-                target='fare_amount',
-                method='grid_search',
-                cv_folds=cv_folds
-            ),
-            RandomForestTuner(
-                data_path=FARE_MODEL_DATA_FILE,
-                output_path=ADVANCED_MODEL_PATH,
-                target='fare_amount',
-                method='grid_search',
-                cv_folds=cv_folds
-            )
-        ]
+        fare_tuners = []
+        if models in ['baseline', 'all']:
+            fare_tuners.extend([
+                LinearRegressionTuner(
+                    data_path=FARE_MODEL_DATA_FILE,
+                    output_path=BASELINE_MODEL_PATH,
+                    target='fare_amount',
+                    method='grid_search'
+                ),
+                DecisionTreeTuner(
+                    data_path=FARE_MODEL_DATA_FILE,
+                    output_path=BASELINE_MODEL_PATH,
+                    target='fare_amount',
+                    method='grid_search',
+                    cv_folds=cv_folds
+                )
+            ])
+        if models in ['advanced', 'all']:
+            fare_tuners.extend([
+                XGBoostTuner(
+                    data_path=FARE_MODEL_DATA_FILE,
+                    output_path=ADVANCED_MODEL_PATH,
+                    target='fare_amount',
+                    method='grid_search',
+                    cv_folds=cv_folds
+                ),
+                RandomForestTuner(
+                    data_path=FARE_MODEL_DATA_FILE,
+                    output_path=ADVANCED_MODEL_PATH,
+                    target='fare_amount',
+                    method='grid_search',
+                    cv_folds=cv_folds
+                )
+            ])
+        
         optimization_configs.append(('Fare Amount', fare_tuners))
     
     # Define tuners for trip duration models
     if target_filter in ['duration', 'both']:
-        duration_tuners = [
-            LinearRegressionTuner(
-                data_path=DURATION_MODEL_DATA_FILE,
-                output_path=BASELINE_MODEL_PATH,
-                target='trip_duration_minutes',
-                method='grid_search'
-            ),
-            DecisionTreeTuner(
-                data_path=DURATION_MODEL_DATA_FILE,
-                output_path=BASELINE_MODEL_PATH,
-                target='trip_duration_minutes',
-                method='grid_search',
-                cv_folds=cv_folds
-            ),
-            XGBoostTuner(
-                data_path=DURATION_MODEL_DATA_FILE,
-                output_path=ADVANCED_MODEL_PATH,
-                target='trip_duration_minutes',
-                method='grid_search',
-                cv_folds=cv_folds
-            ),
-            RandomForestTuner(
-                data_path=DURATION_MODEL_DATA_FILE,
-                output_path=ADVANCED_MODEL_PATH,
-                target='trip_duration_minutes',
-                method='grid_search',
-                cv_folds=cv_folds
-            )
-        ]
+        duration_tuners = []
+        if models in ['baseline', 'all']:
+            duration_tuners.extend([
+                LinearRegressionTuner(
+                    data_path=DURATION_MODEL_DATA_FILE,
+                    output_path=BASELINE_MODEL_PATH,
+                    target='trip_duration_minutes',
+                    method='grid_search'
+                ),
+                DecisionTreeTuner(
+                    data_path=DURATION_MODEL_DATA_FILE,
+                    output_path=BASELINE_MODEL_PATH,
+                    target='trip_duration_minutes',
+                    method='grid_search',
+                    cv_folds=cv_folds
+                )
+            ])
+
+        if models in ['advanced', 'all']:
+            duration_tuners.extend([
+                XGBoostTuner(
+                    data_path=DURATION_MODEL_DATA_FILE,
+                    output_path=ADVANCED_MODEL_PATH,
+                    target='trip_duration_minutes',
+                    method='grid_search',
+                    cv_folds=cv_folds
+                ),
+                RandomForestTuner(
+                    data_path=DURATION_MODEL_DATA_FILE,
+                    output_path=ADVANCED_MODEL_PATH,
+                    target='trip_duration_minutes',
+                    method='grid_search',
+                    cv_folds=cv_folds
+                )
+            ])
+        
         optimization_configs.append(("Trip Duration", duration_tuners))
     
     # Run optimization for both targets
@@ -525,11 +556,11 @@ def main_optimization(target_filter='both', cv_folds=5):
         optimizer.create_best_models()
         optimizer.train_best_models()
         
-        # Show results
-        optimizer.print_optimization_summary()
-        
         # Save optimized models
         optimizer.save_optimized_models()
+
+        # Show results
+        optimizer.print_optimization_summary()
         
         # Get overall best model for this target
         best_model_name, best_results = optimizer.get_best_model_overall()
@@ -559,6 +590,13 @@ if __name__ == "__main__":
         default=5,
         help='Number of cross-validation folds (only for optimize mode)'
     )
+
+    parser.add_argument(
+        '--models',
+        choices=['baseline', 'advanced', 'all'],
+        default='baseline',
+        help='Models to train (only for optimize mode) - baseline, advanced, or all'
+    )
     
     args = parser.parse_args()
     
@@ -568,4 +606,4 @@ if __name__ == "__main__":
     elif args.mode == 'optimize':
         logger.info(f"🔍 Running in OPTIMIZATION mode for target: {args.target}")
         logger.info(f"   CV Folds: {args.cv_folds}")
-        main_optimization(target_filter=args.target, cv_folds=args.cv_folds)
+        main_optimization(target_filter=args.target, cv_folds=args.cv_folds, models=args.models)
