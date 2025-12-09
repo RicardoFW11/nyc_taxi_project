@@ -10,7 +10,7 @@ from src.evaluation.metrics import calculate_metrics
 
 class XGBoostModel(BaseModel):
     def __init__(self, output_path:str,target: str = 'fare_amount',
-                 n_estimators: int = 200,
+                 n_estimators: int = 100,
                  max_depth: int = 8,
                  learning_rate: float = 0.05,
                  subsample: float = 0.85,
@@ -60,9 +60,10 @@ class XGBoostModel(BaseModel):
             'tree_method': tree_method,
             'objective': 'reg:squarederror',
             'eval_metric': 'rmse',
-            'n_jobs': -1,
+            'n_jobs': -1, # Utilize multiple CPU cores
             'random_state': RANDOM_STATE,
-            'verbosity': 0
+            'verbosity': 0,
+            'device': 'gpu' # Use GPU if available
         }
         
         # Add grow_policy and max_leaves only if tree_method supports them
@@ -150,12 +151,12 @@ class RandomForestModel(BaseModel):
                  min_samples_split: int = 5,
                  min_samples_leaf: int = 2,
                  max_features: str = 'sqrt',
-                 max_samples: float = None,
+                 max_samples: float = 0.5,
                  bootstrap: bool = True,
                  oob_score: bool = True,
                  criterion: str = 'squared_error',
-                 min_impurity_decrease: float = 0.0,
-                 min_weight_fraction_leaf: float = 0.0,
+                 min_impurity_decrease: float = 0.001,
+                 min_weight_fraction_leaf: float = 0.01,
                  max_leaf_nodes: int = None,
                  **kwargs):
         

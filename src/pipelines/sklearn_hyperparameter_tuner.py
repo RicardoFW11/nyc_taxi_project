@@ -29,6 +29,8 @@ logger = LoggerFactory.create_logger(
             file_output=False
         )
 
+import gc
+
 class OptimizationMethod(Enum):
     """Available optimization methods"""
     GRID_SEARCH = "grid_search"
@@ -77,6 +79,24 @@ class SklearnHyperparameterTuner(ABC):
         self.search_results = None
         
         np.random.seed(RANDOM_STATE)
+
+    def clear_data(self):
+        """Clear loaded data from memory"""
+        if hasattr(self, 'X'):
+            logger.info("Clearing X data from memory...")
+            del self.X
+        if hasattr(self, 'y'):
+            logger.info("Clearing Y data from memory...")
+            del self.y
+        if hasattr(self, 'data'):
+            logger.info("Clearing data from memory...")
+            del self.data
+            
+        logger.info("✓ Data cleared from memory")
+
+        gc.collect()
+
+        return True
         
     def load_data(self):
         """Load split data from the data splitter output"""
@@ -341,16 +361,16 @@ class XGBoostTuner(SklearnHyperparameterTuner):
         """Parameter grid for GridSearch (very limited for speed)"""
         return {
             'n_estimators': [100], # number of trees
-            'max_depth': [6, 9, 12], # depth of each tree
-            'learning_rate': [0.01, 0.1], # step size
-            'subsample': [0.5, 0.9], # row sampling
+            'max_depth': [6, 8, 10], # depth of each tree
+            #'learning_rate': [0.01, 0.1], # step size
+            #'subsample': [0.5, 0.9], # row sampling
             'colsample_bytree': [0.6, 0.8], # feature sampling
             'colsample_bylevel': [0.6, 0.8], # feature sampling per level
             'min_child_weight': [5, 7], # min sum hessian in leaf
-            'gamma': [0.2, 0.5], # min loss reduction
+            #'gamma': [0.2, 0.5], # min loss reduction
             'reg_alpha': [0.2, 0.5], # L1 regularization
             'reg_lambda': [0.5, 1.5], # L2 regularization
-            'tree_method': ['hist', 'exact', 'approx'] # tree construction method
+            'tree_method': ['hist'] # tree construction method
         }    
     
 class RandomForestTuner(SklearnHyperparameterTuner):
@@ -386,15 +406,15 @@ class RandomForestTuner(SklearnHyperparameterTuner):
         """Parameter grid for GridSearch (limited for speed)"""
         return {
             'n_estimators': [100],
-            'max_depth': [5, 7, 10],
-            'min_samples_split': [2, 10, 20],
-            'min_samples_leaf': [1, 5, 10],
+            'max_depth': [5, 7, 9],
+            'min_samples_split': [10, 20],
+            'min_samples_leaf': [5, 10],
             'max_features': ['sqrt', 'log2'],
-            'max_samples': [0.5, 0.7, 0.9],
+            'max_samples': [0.5, 0.7],
             'bootstrap': [True, False],
-            'criterion': ['squared_error', 'friedman_mse'],
-            'min_impurity_decrease': [0.01, 0.001],
-            'min_weight_fraction_leaf': [0.0, 0.01, 0.05],
-            'max_leaf_nodes': [10, 20, 30]
+            'criterion': ['squared_error', 'friedman_mse']
+            #'min_impurity_decrease': [0.01, 0.001],
+            #'min_weight_fraction_leaf': [0.01, 0.05],
+            #'max_leaf_nodes': [10, 20]
         }
     

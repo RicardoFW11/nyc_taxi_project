@@ -236,6 +236,8 @@ class HyperparameterOptimizer:
                 # Run optimization
                 study = tuner.optimize()
                 study['tuner']= tuner
+
+                tuner.clear_data()
                 
                 # Store results
                 self.optimization_results[model_name] = study
@@ -302,6 +304,8 @@ class HyperparameterOptimizer:
                     'cv_results': self.optimization_results[model_name]['cv_results'],
                     'method': self.optimization_results[model_name]['method']
                 }
+
+                tuner.clear_data()
                 
                 logger.info(f"   ✓ {model_name} trained successfully")
                 
