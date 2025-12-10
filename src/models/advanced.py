@@ -151,7 +151,6 @@ class RandomForestModel(BaseModel):
                  min_samples_split: int = 5,
                  min_samples_leaf: int = 2,
                  max_features: str = 'sqrt',
-                 max_samples: float = 0.5,
                  bootstrap: bool = True,
                  oob_score: bool = True,
                  criterion: str = 'squared_error',
@@ -199,8 +198,6 @@ class RandomForestModel(BaseModel):
         }
         
         # Add optional parameters if provided
-        if max_samples is not None:
-            rf_params['max_samples'] = max_samples
         if max_leaf_nodes is not None:
             rf_params['max_leaf_nodes'] = max_leaf_nodes
             

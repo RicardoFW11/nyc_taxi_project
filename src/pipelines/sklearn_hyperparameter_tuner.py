@@ -410,8 +410,8 @@ class RandomForestTuner(SklearnHyperparameterTuner):
             'min_samples_split': [10, 20],
             'min_samples_leaf': [5, 10],
             'max_features': ['sqrt', 'log2'],
-            'max_samples': [0.5, 0.7],
-            'bootstrap': [True, False],
+            #'max_samples': [0.5, 0.7],
+            'bootstrap': [True],
             'criterion': ['squared_error', 'friedman_mse']
             #'min_impurity_decrease': [0.01, 0.001],
             #'min_weight_fraction_leaf': [0.01, 0.05],
