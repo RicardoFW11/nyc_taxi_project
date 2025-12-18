@@ -146,9 +146,9 @@ health_ok = False
 try:
     health = api_health(api_url)
     health_ok = True
-    st.sidebar.success(f"API online ✅ ({health})")
+    st.sidebar.success(f"API online ({health})")
 except Exception as e:
-    st.sidebar.error(f"API offline ❌ ({e})")
+    st.sidebar.error(f"API offline ({e})")
 
 # Models list
 models = []
