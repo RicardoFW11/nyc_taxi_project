@@ -1,5 +1,8 @@
 FROM python:3.9-slim
 
+
+COPY . /app
+
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -9,11 +12,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY src/ src/
-COPY data/ data/
+#COPY src/ src/
+#COPY data/ data/
 RUN mkdir -p models
 
 ENV PYTHONPATH=/app
 
 # El comando por defecto entrena el modelo XGBoost
-CMD ["python", "src/pipelines/train_model.py", "--model", "xgboost"]
+#CMD ["python", "src/pipelines/train_model.py", "--model", "xgboost"]
+CMD ["python", "src/pipelines/train_model.py", "--mode", "optimize", "--target", "both", "--models", "all"]

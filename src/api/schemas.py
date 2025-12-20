@@ -2,7 +2,7 @@
 Pydantic schemas for API request/response validation
 """
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Dict
 from pydantic import BaseModel, Field, field_validator
 
 
@@ -11,6 +11,7 @@ class TripRequest(BaseModel):
     Request schema for taxi trip prediction.
     All fields needed to make a fare prediction.
     """
+    
     VendorID: int = Field(
         ..., 
         ge=1, 
@@ -67,45 +68,55 @@ class TripRequest(BaseModel):
 
 class PredictionResponse(BaseModel):
     """
-    Response schema for fare prediction
+    Response schema for fare and duration prediction
     """
+    
     predicted_fare: float = Field(
         ..., 
         description="Predicted fare amount in USD"
     )
-    model_version: str = Field(
+    predicted_duration_minutes: float = Field(
         ..., 
-        description="Model version used for prediction"
+        description="Predicted trip duration in minutes"
+    )
+    model_version_fare: str = Field(
+        ..., 
+        description="Fare Model version used for prediction"
+    )
+    model_version_duration: str = Field(
+        ..., 
+        description="Duration Model version used for prediction"
     )
     prediction_timestamp: str = Field(
         ..., 
         description="When the prediction was made"
     )
-    input_features: dict = Field(
+    input_features_fare: Dict = Field(
         ..., 
-        description="Features used for prediction (for debugging)"
+        description="Features used for Fare prediction (for debugging)"
+    )
+    input_features_duration: Dict = Field(
+        ..., 
+        description="Features used for Duration prediction (for debugging)"
     )
 
     class Config:
         json_schema_extra = {
             "example": {
                 "predicted_fare": 18.45,
-                "model_version": "linear_regression_v1",
-                "prediction_timestamp": "2024-11-28T15:30:00",
-                "input_features": {
-                    "VendorID": 1,
-                    "passenger_count": 2,
-                    "trip_distance": 5.3,
-                    "payment_type": 1,
-                    "pickup_hour": 14,
-                    "pickup_day_of_week": 0,
-                    "pickup_month": 5,
-                    "distance_euclidean": 5.3
+                "predicted_duration_minutes": 15.5,
+                "model_version_fare": "xgboost_fare_amount_advanced_v1",
+                "model_version_duration": "random_forest_trip_duration_minutes_advanced_v1",
+                "prediction_timestamp": "2025-12-14T15:30:00",
+                "input_features_fare": {
+                    "trip_distance": 5.3, "pickup_hour": 14, 
+                },
+                "input_features_duration": {
+                    "trip_distance": 5.3, "pickup_day_of_week": 0, 
                 }
             }
         }
-
-
+    
 class HealthResponse(BaseModel):
     """Health check response"""
     status: str

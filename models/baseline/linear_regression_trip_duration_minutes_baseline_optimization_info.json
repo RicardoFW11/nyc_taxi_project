@@ -1,0 +1,12 @@
+{
+  "best_params": {
+    "copy_X": true,
+    "fit_intercept": true,
+    "positive": true
+  },
+  "best_score": -8.59836395705757,
+  "cv_results": {},
+  "method": "OptimizationMethod.GRID_SEARCH",
+  "optimization_date": "2025-12-20T00:41:07.311533",
+  "model_path": "/app/models/baseline/linear_regression_trip_duration_minutes_baseline.pkl"
+}

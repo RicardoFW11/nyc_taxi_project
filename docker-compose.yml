@@ -1,40 +1,61 @@
 services:
-  # 1. Servicio de Entrenamiento
+  # 0. Servicio de Construcción de Datos (ETL)
+  build_data:
+    build:
+      context: .
+      dockerfile: src/docker/Dockerfile.train
+    volumes:
+      - ./data:/app/data # Monta el directorio de datos
+    environment:
+      - PYTHONPATH=/app
+    # Ejecuta el script de construcción de datasets
+    command: python /app/src/pipelines/build_dataset.py
+    #bash -c "export PYTHONPATH=/app && python src/pipelines/build_dataset.py" 
+     
+  # 1. Servicio de Entrenamiento y Optimización
   train_xgboost:
     build:
       context: .
-      dockerfile: src/docker/Dockerfile.train  
+      dockerfile: src/docker/Dockerfile.train 
     volumes:
       - ./data:/app/data
-      - ./models:/app/models
+      - ./models:/app/models # Monta el directorio de modelos (donde se guardan los PKL)
     environment:
       - PYTHONPATH=/app
-    command: python src/pipelines/train_model.py --model xgboost
-
-  # 2. Servicio de API
+    # Ejecuta el pipeline de optimización
+    command: bash -c "export PYTHONPATH=/app && python src/pipelines/train_model.py --mode optimize --target both --models all"
+    depends_on: 
+      - build_data 
+    
+  # 2. Servicio de API (Servir modelos)
   api:
     build:
       context: .
-      dockerfile: src/docker/Dockerfile.api   
+      dockerfile: src/docker/Dockerfile.api    
     ports:
       - "8000:8000"
     volumes:
-      - ./models:/app/models
+      - ./models:/app/models # Carga los modelos recién guardados
     environment:
       - PYTHONPATH=/app
-    depends_on:
+      - API_URL=http://api:8000
+    depends_on: # CRÍTICO: Espera que el entrenamiento haya terminado
       - train_xgboost
-
-  # 3. Servicio de UI
+      
+# 3. Servicio de UI (Streamlit)
   ui:
+    
     build:
       context: .
-      dockerfile: src/docker/Dockerfile.ui    
+      dockerfile: src/docker/Dockerfile.ui  
+    
     ports:
       - "8501:8501"
+    volumes:
+      - ./src:/app/src
+      # Si usas un puerto de API diferente, aquí se configura la variable
     environment:
       - PYTHONPATH=/app
-      # Para Docker, usamos el nombre del servicio "api" como host
       - API_URL=http://api:8000
     depends_on:
       - api

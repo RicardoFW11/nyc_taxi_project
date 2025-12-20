@@ -1,0 +1,17 @@
+{
+  "best_params": {
+    "colsample_bylevel": 0.8,
+    "colsample_bytree": 0.8,
+    "max_depth": 10,
+    "min_child_weight": 5,
+    "n_estimators": 50,
+    "reg_alpha": 0.2,
+    "reg_lambda": 0.5,
+    "tree_method": "hist"
+  },
+  "best_score": -0.15472963013220803,
+  "cv_results": {},
+  "method": "OptimizationMethod.GRID_SEARCH",
+  "optimization_date": "2025-12-20T00:16:49.985276",
+  "model_path": "/app/models/advanced/xgboost_fare_amount_advanced.pkl"
+}

@@ -1,0 +1,17 @@
+{
+  "best_params": {
+    "criterion": "squared_error",
+    "max_depth": 7,
+    "max_features": "sqrt",
+    "max_leaf_nodes": 30,
+    "min_impurity_decrease": 0.001,
+    "min_samples_leaf": 10,
+    "min_samples_split": 10,
+    "splitter": "random"
+  },
+  "best_score": -3.2133728164050077,
+  "cv_results": {},
+  "method": "OptimizationMethod.GRID_SEARCH",
+  "optimization_date": "2025-12-20T00:16:49.887814",
+  "model_path": "/app/models/baseline/decision_tree_fare_amount_baseline.pkl"
+}

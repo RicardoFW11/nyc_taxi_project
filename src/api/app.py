@@ -13,15 +13,15 @@ sys.path.insert(0, str(project_root))
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
-from src.api.predictor import FarePredictor
+from src.api.predictor import PredictionManager
 from src.api.schemas import HealthResponse, PredictionResponse, TripRequest
-from src.config.settings import MODEL_FEATURES
+#from src.config.settings import MODEL_FEATURES
 
 # Initialize FastAPI app
 app = FastAPI(
-    title="NYC Taxi Fare Prediction API",
-    description="API for predicting taxi fares in New York City",
-    version="1.0.0",
+    title="NYC Taxi Fare & Duration Prediction API",
+    description="API for predicting taxi fares and trip duration in New York City",
+    version="2.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
 )
@@ -45,7 +45,11 @@ async def startup_event():
     global predictor
     try:
         #predictor = FarePredictor(model_name="linear_fare.pkl")
-        predictor = FarePredictor(model_name="xgboost_fare.pkl")
+        #predictor = FarePredictor(model_name="xgboost_fare.pkl")
+        predictor = PredictionManager(
+            fare_model_name="xgboost_fare_amount_advanced.pkl", # Usamos XGBoost optimizado como principal
+            duration_model_name="random_forest_trip_duration_minutes_advanced.pkl" # Usamos RF optimizado
+        )
         print("🚀 API started successfully!")
     except Exception as e:
         print(f"❌ Error loading model: {str(e)}")
@@ -56,8 +60,8 @@ async def startup_event():
 async def root():
     """Welcome endpoint"""
     return {
-        "message": "NYC Taxi Fare Prediction API",
-        "version": "1.0.0",
+        "message": "NYC Taxi Fare & Duration Prediction API",
+        "version": "2.0.0",
         "docs": "/docs",
         "health": "/health",
     }
@@ -76,7 +80,8 @@ async def health_check():
 
 
 @app.post("/predict", response_model=PredictionResponse, tags=["Prediction"])
-async def predict_fare(trip: TripRequest):
+#async def predict_fare(trip: TripRequest):
+async def predict_trip(trip: TripRequest):
     """
     Predict taxi fare for a given trip
 
@@ -114,8 +119,24 @@ async def model_info():
         raise HTTPException(status_code=503, detail="Model not loaded")
 
     return {
-        "model_version": predictor.model_version,
-        "model_path": str(predictor.model_path),
-        "features_used": MODEL_FEATURES,
-        "model_type": "Linear Regression",
+        "fare_model": { # CAMBIO
+            "version": predictor.model_versions['fare'],
+            #"path": str(predictor._get_model_path(predictor.model_versions['fare'] + '.pkl')),
+            "metrics": predictor.model_metrics.get('fare', {"MAE": "N/A"}),
+            "features_used_count": len(predictor.model_features['fare']),
+        },
+        "duration_model": { # CAMBIO
+            "version": predictor.model_versions['duration'],
+            #"path": str(predictor._get_model_path(predictor.model_versions['duration'] + '.pkl')),
+            "metrics": predictor.model_metrics.get('duration', {"MAE": "N/A"}),
+            "features_used_count": len(predictor.model_features['duration']),
+        },
+        "total_features_engineered": len(predictor.feature_engineer.feature_stats.get('column_types', {}).get('numeric', [])) # CAMBIO
     }
+
+    #return {
+     #   "model_version": predictor.model_version,
+     #   "model_path": str(predictor.model_path),
+     #   "features_used": MODEL_FEATURES,
+     #   "model_type": "Linear Regression",
+    #}

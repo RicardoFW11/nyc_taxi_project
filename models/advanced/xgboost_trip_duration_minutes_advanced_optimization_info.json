@@ -1,0 +1,17 @@
+{
+  "best_params": {
+    "colsample_bylevel": 0.8,
+    "colsample_bytree": 0.8,
+    "max_depth": 8,
+    "min_child_weight": 5,
+    "n_estimators": 50,
+    "reg_alpha": 0.2,
+    "reg_lambda": 0.5,
+    "tree_method": "hist"
+  },
+  "best_score": -0.23172390216465036,
+  "cv_results": {},
+  "method": "OptimizationMethod.GRID_SEARCH",
+  "optimization_date": "2025-12-20T00:41:07.545083",
+  "model_path": "/app/models/advanced/xgboost_trip_duration_minutes_advanced.pkl"
+}
