@@ -4,9 +4,9 @@
     "fit_intercept": true,
     "positive": true
   },
-  "best_score": -2.4345395206714002,
+  "best_score": -2.5327892601986624,
   "cv_results": {},
   "method": "OptimizationMethod.GRID_SEARCH",
-  "optimization_date": "2025-12-20T00:16:49.829493",
+  "optimization_date": "2025-12-22T21:02:08.699757",
   "model_path": "/app/models/baseline/linear_regression_fare_amount_baseline.pkl"
 }

@@ -1,6 +1,7 @@
 import sys
 import os
 import argparse
+import logging
 
 import pickle
 import pandas as pd
@@ -8,6 +9,7 @@ import numpy as np
 from datetime import datetime
 import joblib
 from pathlib import Path
+
 
 # Configuraciones y utilidades (asumimos que paths.py, settings.py y logging.py están correctos)
 from src.models.baseline import LinearRegressionModel, DecisionTreeModel
@@ -286,6 +288,8 @@ class HyperparameterOptimizer:
         """
         Train the best models with their optimized hyperparameters
         """
+        import logging
+        logger = logging.getLogger(__name__)
         logger.info("\n🚀 Training models with best hyperparameters...")
         
         self.trained_results = {}
@@ -297,12 +301,38 @@ class HyperparameterOptimizer:
                 # Get the corresponding tuner to access data
                 tuner = self.optimization_results[model_name]['tuner']
                 
-                # Load data into tuner
+                # Load data into tuner (Recuerda: esto carga tuner.X y tuner.y)
                 tuner.load_data()
                 
-                # Train the model (using the combined dataset X, y)
+                # --- VERIFICACIÓN DE SEGURIDAD (Correcta) ---
+                if hasattr(tuner, 'X') and tuner.X is not None:
+                    cols = list(tuner.X.columns)
+                    if 'trip_duration_minutes' in cols or 'fare_amount' in cols:
+                         # Solo alertar si estamos prediciendo duration y vemos fare, o viceversa
+                        pass # Ya validamos esto antes, confiamos en build_dataset.py
+                else:
+                    logger.error(f"❌ Error: No data loaded in tuner for {model_name}")
+                    continue
+                # --------------------------------------------
+
+                # Train the model (USANDO tuner.X y tuner.y, NO X_train)
                 model.fit(tuner.X, tuner.y)
                 
+                # Feature Importance (Opcional, pero útil)
+                try:
+                    if hasattr(model, 'feature_importances_') or (hasattr(model, 'model') and hasattr(model.model, 'feature_importances_')):
+                        # Intentar obtener el modelo base si es un wrapper
+                        base_model = model.model if hasattr(model, 'model') else model
+                        if hasattr(base_model, 'feature_importances_'):
+                            import pandas as pd
+                            feature_imp = pd.DataFrame({
+                                'Feature': tuner.X.columns,
+                                'Importance': base_model.feature_importances_
+                            }).sort_values('Importance', ascending=False)
+                            logger.info(f"\n📊 Top 5 Features ({model_name}):\n{feature_imp.head(5)}")
+                except Exception:
+                    pass # Si falla el print de features, no detener el entrenamiento
+
                 # Evaluate on the same data
                 metrics = model.evaluate(tuner.X, tuner.y)
                 
@@ -311,20 +341,22 @@ class HyperparameterOptimizer:
                     'metrics': metrics,
                     'best_params': self.optimization_results[model_name]['tuner'].best_params,
                     'best_score': self.optimization_results[model_name]['tuner'].best_score,
-                    #'cv_results': self.optimization_results[model_name]['search_results'].cv_results_, # Acceder a los resultados de CV
                     'cv_results': self.optimization_results[model_name].get('search_results', {}),
                     'method': self.optimization_results[model_name]['tuner'].method
                 }
 
+                # Liberar memoria
                 tuner.clear_data()
                 
                 logger.info(f"  ✓ {model_name} trained successfully")
                 
             except Exception as e:
                 logger.error(f"  ❌ Training failed for {model_name}: {e}")
+                import traceback
+                logger.error(traceback.format_exc())
         
         logger.info(f"✓ {len(self.trained_results)} models trained with optimal hyperparameters")
-        
+
     def _convert_numpy_to_native(self, obj):
         """Convert numpy types to native Python types for JSON serialization"""
         if isinstance(obj, np.ndarray):

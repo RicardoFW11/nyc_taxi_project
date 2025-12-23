@@ -66,13 +66,31 @@ def build_complete_dataset():
             outlier_method='iqr',
             outlier_factor=1.5
         )
+
+# --- ✂️ AGREGA ESTO AQUÍ ✂️ ---
+        logger.warning("⚠️ LIMITANDO DATOS PARA EVITAR CRASH DE MEMORIA EN DOCKER")
+        if len(cleaned_data) > 300000:
+            cleaned_data = cleaned_data.sample(n=300000, random_state=42)
+            logger.info(f"📉 Datos recortados a: {len(cleaned_data)} filas")
+        # -----------------------------
+
+        if cleaned_data is None or cleaned_data.empty:
+            logger.error("Data preprocessing failed. Stopping pipeline.")
+        # ... (resto del código igual) ...
+
         if cleaned_data is None or cleaned_data.empty:
             logger.error("Data preprocessing failed. Stopping pipeline.")
             return False
         
         # Guardar datos limpios intermedios
         processed_path = preprocessor.save_processed_data()
-        
+
+        # --- AGREGAR ESTO: SOBRESCRIBIR EL ARCHIVO CON LOS DATOS RECORTADOS 🔥 ---
+        logger.info(f"⚡ FORZANDO SOBRESCRITURA DEL ARCHIVO CON {len(cleaned_data)} FILAS...")
+        cleaned_data.to_parquet(processed_path) 
+        logger.info("✅ Sobrescritura completada. Ahora sí el archivo es pequeño.")
+        # ---------------------------------------------------------------------------
+
         # Step 4: Feature engineering (Usando la clase avanzada)
         logger.info("Step 4: Creating features...")
         feature_engineer = TaxiFeatureEngineer(processed_data_path=processed_path)

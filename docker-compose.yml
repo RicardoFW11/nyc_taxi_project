@@ -5,7 +5,8 @@ services:
       context: .
       dockerfile: src/docker/Dockerfile.train
     volumes:
-      - ./data:/app/data # Monta el directorio de datos
+      #- ./data:/app/data # Monta el directorio de datos
+      - .:/app # Monta el directorio de datos
     environment:
       - PYTHONPATH=/app
     # Ejecuta el script de construcción de datasets

@@ -133,20 +133,51 @@ class PredictionManager:
             DataFrame with all engineered features for one sample
         """
         # Crear un DataFrame con los datos de entrada
+        #input_df = pd.DataFrame([{
+        #    "VendorID": trip_data.VendorID,
+        #    "passenger_count": trip_data.passenger_count,
+        #    "trip_distance": trip_data.trip_distance,
+        #    "payment_type": trip_data.payment_type,
+        #    "tpep_pickup_datetime": datetime.strptime(trip_data.pickup_datetime, "%Y-%m-%d %H:%M:%S"),
+        #    # Campos dummy/mínimos para evitar errores de Feature Engineer
+        #    'fare_amount': 10.0, 'tip_amount': 0.0, 'tolls_amount': 0.0,
+        #    'extra': 0.0, 'mta_tax': 0.5, 'improvement_surcharge': 0.3,
+        #    'total_amount': 10.8, 'congestion_surcharge': 2.5, 'airport_fee': 0.0,
+        #    'RatecodeID': 1, 'store_and_fwd_flag': 'N',
+        #    'PULocationID': 1, 'DOLocationID': 1 # Estos IDs deben ser manejados si son necesarios
+        #}])
+
+        # Crear un DataFrame con los datos de entrada
         input_df = pd.DataFrame([{
             "VendorID": trip_data.VendorID,
             "passenger_count": trip_data.passenger_count,
             "trip_distance": trip_data.trip_distance,
             "payment_type": trip_data.payment_type,
             "tpep_pickup_datetime": datetime.strptime(trip_data.pickup_datetime, "%Y-%m-%d %H:%M:%S"),
+            
             # Campos dummy/mínimos para evitar errores de Feature Engineer
-            'fare_amount': 10.0, 'tip_amount': 0.0, 'tolls_amount': 0.0,
-            'extra': 0.0, 'mta_tax': 0.5, 'improvement_surcharge': 0.3,
-            'total_amount': 10.8, 'congestion_surcharge': 2.5, 'airport_fee': 0.0,
+            # FIX: Inicializados en 0.0 para que el modelo NO vea la respuesta (Leakage)
+            'fare_amount': 0.0, 'tip_amount': 0.0, 'tolls_amount': 0.0,
+            'extra': 0.0, 'mta_tax': 0.0, 'improvement_surcharge': 0.0,
+            'total_amount': 0.0, 'congestion_surcharge': 0.0, 'airport_fee': 0.0,
+            
             'RatecodeID': 1, 'store_and_fwd_flag': 'N',
             'PULocationID': 1, 'DOLocationID': 1 # Estos IDs deben ser manejados si son necesarios
         }])
-        
+
+        #input_df = pd.DataFrame([{
+        #    "VendorID": trip_data.VendorID,
+        #    "passenger_count": trip_data.passenger_count,
+        #    "trip_distance": trip_data.trip_distance,
+        #    "payment_type": trip_data.payment_type,
+        #    "tpep_pickup_datetime": datetime.strptime(trip_data.pickup_datetime, "%Y-%m-%d %H:%M:%S"),
+        #    "RatecodeID": 1, 
+        #    "store_and_fwd_flag": 'N',
+        #    "PULocationID": 1, 
+        #    "DOLocationID": 1 
+        #}])
+
+
         # Ejecutar la ingeniería de características (solo las partes necesarias)
         
         # Nota: El FeatureEngineer avanzado asume un DataFrame completo,

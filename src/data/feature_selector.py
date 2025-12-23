@@ -18,38 +18,98 @@ class FeatureSelector:
         """
         
         # Features most relevant for fare prediction based on your schema
-        fare_relevant_features = [
+        #fare_relevant_features = [
             # Core trip features
-            'trip_distance', 'log_trip_distance', 'fare_per_mile',
-            'passenger_count', 'trip_duration_minutes',
+        #    'trip_distance', 'log_trip_distance', 'fare_per_mile',
+        #    'passenger_count', 'trip_duration_minutes',
             
             # Temporal features
-            'pickup_hour', 'pickup_day_of_week', 'is_weekend', 
-            'is_rush_hour', 'is_morning_rush', 'is_evening_rush',
-            'time_of_day_Morning', 'time_of_day_Afternoon', 'time_of_day_Evening',
+        #    'pickup_hour', 'pickup_day_of_week', 'is_weekend', 
+        #    'is_rush_hour', 'is_morning_rush', 'is_evening_rush',
+        #    'time_of_day_Morning', 'time_of_day_Afternoon', 'time_of_day_Evening',
             
             # Location/Route features
-            'is_airport_trip', 'is_jfk_trip', 'is_newark_trip',
-            'pickup_popularity', 'dropoff_popularity',
+        #    'is_airport_trip', 'is_jfk_trip', 'is_newark_trip',
+        #    'pickup_popularity', 'dropoff_popularity',
             
             # Rate and payment features
-            'is_standard_rate', 'ratecode_name_Standard', 'ratecode_name_Newark',
-            'is_credit_card', 'is_cash_payment', 'payment_name_Credit_Card',
+        #    'is_standard_rate', 'ratecode_name_Standard', 'ratecode_name_Newark',
+        #    'is_credit_card', 'is_cash_payment', 'payment_name_Credit_Card',
             
             # Trip characteristics
-            'distance_category_encoded', 'is_short_distance', 
-            'is_medium_distance', 'is_long_distance',
-            'avg_speed_mph', 'speed_category_encoded',
+        #    'distance_category_encoded', 'is_short_distance', 
+        #    'is_medium_distance', 'is_long_distance',
+        #    'avg_speed_mph', 'speed_category_encoded',
             
             # Additional features
-            'extra', 'mta_tax', 'improvement_surcharge', 'congestion_surcharge',
-            'airport_fee', 'is_store_forward',
+        #    'extra', 'mta_tax', 'improvement_surcharge', 'congestion_surcharge',
+        #    'airport_fee', 'is_store_forward',
             
             # Aggregated features
-            'hourly_fare_amount_mean', 'hourly_fare_amount_std',
+        #    'hourly_fare_amount_mean', 'hourly_fare_amount_std',
+        #    'daily_avg_fare_amount'
+        #]
+
+        fare_relevant_features = [
+            # --- FEATURES PERMITIDAS (Info disponible ANTES del viaje) ---
+
+            # Trip Basics
+            'trip_distance',        # Aceptable (sabemos la ruta aproximada)
+            'log_trip_distance',    # Transformación válida de distancia
+            'passenger_count',      # El usuario dice cuántos son al subir
+
+            # Temporal features (Calendario y Reloj)
+            'pickup_hour', 
+            'pickup_day_of_week', 
+            'is_weekend', 
+            'is_rush_hour', 
+            'is_morning_rush', 
+            'is_evening_rush',
+            'time_of_day_Morning', 
+            'time_of_day_Afternoon', 
+            'time_of_day_Evening',
+
+            # Location features (Origen y Destino)
+            'is_airport_trip', 
+            'is_jfk_trip', 
+            'is_newark_trip',
+            'pickup_popularity', 
+            'dropoff_popularity',
+
+            # Rate info (Conocido al inicio)
+            'is_standard_rate', 
+            'ratecode_name_Standard', 
+            'ratecode_name_Newark',
+
+            # Payment info (Usuario elige antes o al inicio)
+            'is_credit_card', 
+            'is_cash_payment', 
+            'payment_name_Credit_Card',
+
+            # Trip characteristics (Estimaciones basadas en distancia)
+            'distance_category_encoded', 
+            'is_short_distance', 
+            'is_medium_distance', 
+            'is_long_distance',
+            
+            # Aggregated features (SOLO si se calcularon con datos históricos pasados)
+            # Si estas medias incluyen el viaje actual, coméntalas también.
+            'hourly_fare_amount_mean', 
+            'hourly_fare_amount_std',
             'daily_avg_fare_amount'
+
+            # --- ⛔ FEATURES ELIMINADAS (DATA LEAKAGE) ---
+            # 'fare_per_mile',          <-- ELIMINADO: Contiene el target
+            # 'trip_duration_minutes',  <-- ELIMINADO: Dato del futuro
+            # 'avg_speed_mph',          <-- ELIMINADO: Derivado del tiempo real
+            # 'extra',                  <-- ELIMINADO: Componente de factura
+            # 'mta_tax',                <-- ELIMINADO: Componente de factura
+            # 'improvement_surcharge',  <-- ELIMINADO: Componente de factura
+            # 'congestion_surcharge',   <-- ELIMINADO: Componente de factura
+            # 'airport_fee',            <-- ELIMINADO: Componente de factura
+            # 'speed_category_encoded'  <-- ELIMINADO: Derivado de velocidad real
         ]
-        
+
         # Filter features that exist in the dataset
         available_features = [f for f in fare_relevant_features if f in X.columns]
         
@@ -89,44 +149,87 @@ class FeatureSelector:
         """
         
         # Features most relevant for duration prediction
-        duration_relevant_features = [
+       # duration_relevant_features = [
             # Core trip features
-            'trip_distance', 'log_trip_distance', 'avg_speed_mph',
-            'passenger_count', 'fare_amount',
+        #    'trip_distance', 'log_trip_distance', 'avg_speed_mph',
+        #    'passenger_count', 'fare_amount',
             
             # Temporal features - clave para duration
+        #    'pickup_hour', 'pickup_day_of_week', 'is_weekend',
+        #    'is_rush_hour', 'is_morning_rush', 'is_evening_rush',
+        #    'time_of_day_Morning', 'time_of_day_Afternoon', 'time_of_day_Evening',
+        #    'detailed_time_category_Morning', 'detailed_time_category_Evening',
+        #    'detailed_time_category_Late_Night', 'detailed_time_category_Night',
+            
+            # Speed and efficiency features
+        #    'speed_category_encoded', 'is_slow_trip', 'is_fast_trip',
+        #    'trip_efficiency',
+            
+            # Location features
+        #    'is_airport_trip', 'is_jfk_trip', 'is_newark_trip',
+        #    'pickup_popularity', 'dropoff_popularity',
+            
+            # Distance categories
+        #    'distance_category_encoded', 'is_short_distance',
+        #    'is_medium_distance', 'is_long_distance',
+        #    'is_very_short_trip', 'is_long_trip',
+            
+            # Vendor and operational
+        #    'VendorID', 'is_store_forward',
+        #    'ratecode_name_Standard', 'ratecode_name_Newark',
+            
+            # Interaction features
+        #    'weekend_rush', 'long_distance_long_time',
+        #    'airport_morning', 'airport_evening',
+            
+            # Aggregated features
+        #    'hourly_trip_distance_mean', 'daily_avg_avg_speed_mph',
+        #    'is_round_trip'
+        #]
+
+# Features most relevant for duration prediction (VERSION SIN DATA LEAKAGE)
+        duration_relevant_features = [
+            # Core trip features (Solo distancia y pasajeros)
+            'trip_distance', 'log_trip_distance',
+            'passenger_count',
+            # 'fare_amount',  <-- ELIMINADO (Leakage)
+            # 'avg_speed_mph', <-- ELIMINADO (Leakage masivo)
+            
+            # Temporal features (Calendario y Reloj - OK)
             'pickup_hour', 'pickup_day_of_week', 'is_weekend',
             'is_rush_hour', 'is_morning_rush', 'is_evening_rush',
             'time_of_day_Morning', 'time_of_day_Afternoon', 'time_of_day_Evening',
             'detailed_time_category_Morning', 'detailed_time_category_Evening',
             'detailed_time_category_Late_Night', 'detailed_time_category_Night',
             
-            # Speed and efficiency features
-            'speed_category_encoded', 'is_slow_trip', 'is_fast_trip',
-            'trip_efficiency',
+            # Speed features (ELIMINADOS TODOS porque requieren saber el tiempo final)
+            # 'speed_category_encoded', 'is_slow_trip', 'is_fast_trip',
+            # 'trip_efficiency',
             
-            # Location features
+            # Location features (Origen y Destino - OK)
             'is_airport_trip', 'is_jfk_trip', 'is_newark_trip',
             'pickup_popularity', 'dropoff_popularity',
             
-            # Distance categories
+            # Distance categories (Basado en distancia - OK)
             'distance_category_encoded', 'is_short_distance',
             'is_medium_distance', 'is_long_distance',
             'is_very_short_trip', 'is_long_trip',
             
-            # Vendor and operational
+            # Vendor and operational (Info del sistema - OK)
             'VendorID', 'is_store_forward',
             'ratecode_name_Standard', 'ratecode_name_Newark',
             
             # Interaction features
-            'weekend_rush', 'long_distance_long_time',
+            'weekend_rush', 
+            # 'long_distance_long_time', <-- ELIMINADO (Usa tiempo)
             'airport_morning', 'airport_evening',
             
-            # Aggregated features
-            'hourly_trip_distance_mean', 'daily_avg_avg_speed_mph',
+            # Aggregated features (Históricos - OK)
+            'hourly_trip_distance_mean', 
+            'daily_avg_avg_speed_mph', # Esto es OK si es el promedio HISTÓRICO del día, no del viaje actual.
             'is_round_trip'
         ]
-        
+
         # Filter features that exist in the dataset
         available_features = [f for f in duration_relevant_features if f in X.columns]
         

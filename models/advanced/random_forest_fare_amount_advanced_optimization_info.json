@@ -8,9 +8,9 @@
     "min_samples_split": 20,
     "n_estimators": 100
   },
-  "best_score": -1.1973734014766724,
+  "best_score": -2.619422276477437,
   "cv_results": {},
   "method": "OptimizationMethod.GRID_SEARCH",
-  "optimization_date": "2025-12-20T00:16:50.075791",
+  "optimization_date": "2025-12-22T21:02:09.290218",
   "model_path": "/app/models/advanced/random_forest_fare_amount_advanced.pkl"
 }

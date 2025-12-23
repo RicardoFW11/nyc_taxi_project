@@ -8,9 +8,9 @@
     "min_samples_split": 10,
     "n_estimators": 100
   },
-  "best_score": -0.9615085489582043,
+  "best_score": -12.653505704254732,
   "cv_results": {},
   "method": "OptimizationMethod.GRID_SEARCH",
-  "optimization_date": "2025-12-20T00:41:07.664615",
+  "optimization_date": "2025-12-22T21:17:31.443282",
   "model_path": "/app/models/advanced/random_forest_trip_duration_minutes_advanced.pkl"
 }
