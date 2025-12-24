@@ -1,556 +1,190 @@
-"""# 🚕 NYC Taxi Fare & Duration Prediction
+# NYC Taxi Fare & Duration Intelligence System
 
-[![Python](https://img.shields.io/badge/Python-3.9%2B-blue.svg)](https://www.python.org/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.104%2B-green.svg)](https://fastapi.tiangolo.com/)
-[![Streamlit](https://img.shields.io/badge/Streamlit-1.28%2B-red.svg)](https://streamlit.io/)
-[![Docker](https://img.shields.io/badge/Docker-Ready-blue.svg)](https://www.docker.com/)
-[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![Python 3.9+](https://img.shields.io/badge/Python-3.9%2B-blue.svg)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.104%2B-009688.svg)](https://fastapi.tiangolo.com/)
+[![Streamlit](https://img.shields.io/badge/Streamlit-1.28%2B-FF4B4B.svg)](https://streamlit.io/)
+[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED.svg)](https://www.docker.com/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Machine Learning project for predicting taxi fare amounts and trip durations in New York City using real-world data from the NYC Taxi & Limousine Commission (TLC). This project demonstrates a complete MLOps lifecycle, from data ingestion to containerized deployment.
+## Executive Summary
 
----
+This project implements an end-to-end Machine Learning Operations (MLOps) pipeline designed to predict taxi fare amounts and trip durations in New York City. By leveraging high-volume transactional data from the NYC Taxi & Limousine Commission (TLC), the system provides real-time inference capabilities through a microservices architecture.
 
-## 📋 Table of Contents
-
-- [Overview](#-overview)
-- [System Architecture](#-system-architecture)
-- [Features](#-features)
-- [Project Structure](#-project-structure)
-- [Quick Start Guide](#-quick-start-guide)
-- [Dataset](#-dataset)
-- [Installation & Local Usage](#-installation--local-usage)
-- [Docker Deployment](#-docker-deployment)
-- [API Documentation](#-api-documentation)
-- [Results](#-results)
-- [Contributing](#-contributing)
-- [Authors](#-authors)
-- [License](#-license)
-
----
-
-## 🎯 Overview
-
-This project builds end-to-end machine learning pipelines to predict:
-
-1. **Fare Amount** - The total cost of a taxi ride.
-2. **Trip Duration** - The time duration of a trip in minutes.
-
-The models leverage various features including:
-- Pick-up and drop-off locations (latitude/longitude/zones).
-- Date and time information (Hour, Day of Week).
-- Vendor ID, passenger count, payment type.
-- Engineered features (Euclidean distance, time-based traffic inference).
-
-### 🏆 Project Goals
-
-- Build **baseline models** (Linear Regression) for benchmarking.
-- Develop **advanced models** (XGBoost) to capture non-linear relationships and edge cases.
-- Deploy a **production-ready API** using FastAPI.
-- Provide a user-friendly **Web Interface** using Streamlit.
-- Ensure **reproducibility** through full Docker containerization.
-- Follow **Clean Code** and **SOLID principles**.
-
----
-
-## 🔄 System Architecture
-
-The project follows a microservices architecture orchestrated by Docker:
-
-```mermaid
-graph LR
-    A[Raw Data] --> B(Processing Pipeline)
-    B --> C{Model Training}
-    C -->|Option 1| D[Baseline: Linear Reg]
-    C -->|Option 2| E[Advanced: XGBoost]
-    D & E --> F[Model Artifacts .pkl]
-    F --> G[FastAPI Backend]
-    G --> H[Streamlit Frontend]
-
-
-
-✨ Features
-✅ End-to-End Pipeline - Automated data ingestion, cleaning, and feature engineering.
-✅ Hybrid Modeling - Switch between Baseline (Linear) and Advanced (XGBoost) models with a single command. 
-✅ REST API - FastAPI-based service for real-time predictions with Swagger UI. 
-✅ Interactive UI - Streamlit app for easy user interaction and visualization. 
-✅ Docker Ecosystem - Multi-container orchestration (Training -> API -> UI) using Docker Compose. 
-✅ Robust Error Handling - Comprehensive validation using Pydantic schemas. 
-✅ Clean Architecture - Modular design separating configuration, data, models, and presentation layers.
-
-
-📂 Project Structure
-
-nyc_taxi_project/
-│
-├── README.md                    # Project documentation
-├── requirements.txt             # Python dependencies
-├── docker-compose.yml           # Docker orchestration
-├── .gitignore                   # Git ignore rules
-│
-├── data/                        # Data directory (gitignored)
-│   ├── raw/                     # Original TLC parquet files
-│   └── processed/               # Cleaned and feature-engineered data
-│
-├── src/                         # Source code
-│   │
-│   ├── api/                     # FastAPI application
-│   │   ├── app.py               # API endpoints
-│   │   ├── schemas.py           # Pydantic models
-│   │   └── predictor.py         # Inference logic
-│   │
-│   ├── config/                  # Configuration management
-│   │   └── settings.py          # Global settings (Paths, Params)
-│   │
-│   ├── data/                    # Data handling modules
-│   │   ├── preprocess.py        # Cleaning logic
-│   │   └── features.py          # Feature engineering
-│   │
-│   ├── docker/                  # Dockerfiles
-│   │   ├── Dockerfile.api       # API container
-│   │   ├── Dockerfile.train     # Training container
-│   │   └── Dockerfile.ui        # Streamlit container
-│   │
-│   ├── evaluation/              # Metrics calculation
-│   │   └── metrics.py           # MAE, MSE, RMSE
-│   │
-│   ├── models/                  # Model definitions
-│   │   ├── baseline.py          # Linear Regression wrapper
-│   │   └── advanced.py          # XGBoost wrapper
-│   │
-│   ├── pipelines/               # Execution pipelines
-│   │   ├── build_dataset.py     # ETL Pipeline
-│   │   └── train_model.py       # Training Pipeline
-│   │
-│   └── streamlit_app.py         # Frontend application
-│
-└── models/                      # Trained model artifacts (gitignored)
-    ├── baseline/                # Linear Regression artifacts
-    └── advanced/                # XGBoost artifacts
-
-
-🚀 Quick Start Guide
-Option A: The "Docker Way" (Recommended) 🐳
-Run the entire ecosystem (Training + API + UI) with a single command. No Python installation required.
-
-```bash
-
-docker-compose up --build
-
-```
-
-**Access the services:**
-
-Web App (Frontend): http://localhost:8501
-API Docs (Backend): http://localhost:8000/docs
-
-Aquí tienes el script definitivo y completo. He verificado línea por línea que incluya todas las secciones que pediste (Features, Project Structure, Quick Start, Dataset, Installation, Docker, API, Results, Contributing, Authors y License).
-
-Solo copia el siguiente bloque de código, pégalo en un archivo generate_readme.py y ejecútalo.
-
-Python
-
-import os
-
-# Contenido COMPLETO del README.md
-readme_content = r"""# 🚕 NYC Taxi Fare & Duration Prediction
-
-[![Python](https://img.shields.io/badge/Python-3.9%2B-blue.svg)](https://www.python.org/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.104%2B-green.svg)](https://fastapi.tiangolo.com/)
-[![Streamlit](https://img.shields.io/badge/Streamlit-1.28%2B-red.svg)](https://streamlit.io/)
-[![Docker](https://img.shields.io/badge/Docker-Ready-blue.svg)](https://www.docker.com/)
-[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
-
-Machine Learning project for predicting taxi fare amounts and trip durations in New York City using real-world data from the NYC Taxi & Limousine Commission (TLC). This project demonstrates a complete MLOps lifecycle, from data ingestion to containerized deployment.
+The solution encompasses the entire data lifecycle: ingestion of raw parquet files, automated cleaning and validation, feature engineering, model training (benchmarking Linear Regression vs. XGBoost), and deployment via containerized REST APIs and interactive dashboards.
 
 ---
 
 ## 📋 Table of Contents
 
-- [Overview](#-overview)
 - [System Architecture](#-system-architecture)
-- [Features](#-features)
-- [Project Structure](#-project-structure)
+- [Project Features](#-project-features)
+- [Repository Structure](#-repository-structure)
 - [Quick Start Guide](#-quick-start-guide)
-- [Dataset](#-dataset)
-- [Installation & Local Usage](#-installation--local-usage)
-- [Docker Deployment](#-docker-deployment)
-- [API Documentation](#-api-documentation)
-- [Results](#-results)
-- [Contributing](#-contributing)
-- [Authors](#-authors)
-- [License](#-license)
-
----
-
-## 🎯 Overview
-
-This project builds end-to-end machine learning pipelines to predict:
-
-1. **Fare Amount** - The total cost of a taxi ride.
-2. **Trip Duration** - The time duration of a trip in minutes.
-
-The models leverage various features including:
-- Pick-up and drop-off locations (latitude/longitude/zones).
-- Date and time information (Hour, Day of Week).
-- Vendor ID, passenger count, payment type.
-- Engineered features (Euclidean distance, time-based traffic inference).
-
-### 🏆 Project Goals
-
-- Build **baseline models** (Linear Regression) for benchmarking.
-- Develop **advanced models** (XGBoost) to capture non-linear relationships and edge cases.
-- Deploy a **production-ready API** using FastAPI.
-- Provide a user-friendly **Web Interface** using Streamlit.
-- Ensure **reproducibility** through full Docker containerization.
-- Follow **Clean Code** and **SOLID principles**.
+- [Data Pipeline & Engineering](#-data-pipeline--engineering)
+- [Model Performance](#-model-performance)
+- [API Reference](#-api-reference)
+- [Deployment Strategy](#-deployment-strategy)
+- [Authors & Acknowledgments](#-authors--acknowledgments)
 
 ---
 
 ## 🔄 System Architecture
 
-The project follows a microservices architecture orchestrated by Docker:
+The solution relies on a containerized microservices pattern managed by Docker Compose, ensuring isolation and reproducibility across environments.
 
 ```mermaid
 graph LR
-    A[Raw Data] --> B(Processing Pipeline)
-    B --> C{Model Training}
-    C -->|Option 1| D[Baseline: Linear Reg]
-    C -->|Option 2| E[Advanced: XGBoost]
-    D & E --> F[Model Artifacts .pkl]
-    F --> G[FastAPI Backend]
-    G --> H[Streamlit Frontend]
-✨ Features
-✅ End-to-End Pipeline - Automated data ingestion, cleaning, and feature engineering. ✅ Hybrid Modeling - Switch between Baseline (Linear) and Advanced (XGBoost) models with a single command. ✅ REST API - FastAPI-based service for real-time predictions with Swagger UI. ✅ Interactive UI - Streamlit app for easy user interaction and visualization. ✅ Docker Ecosystem - Multi-container orchestration (Training -> API -> UI) using Docker Compose. ✅ Robust Error Handling - Comprehensive validation using Pydantic schemas. ✅ Clean Architecture - Modular design separating configuration, data, models, and presentation layers.
+    subgraph Data Layer
+    A[Raw TLC Data] --> B(Preprocessing Pipeline)
+    B --> C(Feature Engineering)
+    end
+    
+    subgraph Training Layer
+    C --> D{Model Selection}
+    D -->|Baseline| E[Linear Regression]
+    D -->|Advanced| F[XGBoost / Random Forest]
+    E & F --> G[Serialized Artifacts .pkl]
+    end
+    
+    subgraph Serving Layer
+    G --> H[FastAPI Backend]
+    H --> I[Streamlit Dashboard]
+    end
 
-📂 Project Structure
-Plaintext
+✨ Project Features
+
+Core Capabilities
+
+* Automated ETL Pipeline: Robust extraction, transformation, and loading process capable of handling millions of records with memory-efficient sampling.
+
+* Dual-Target Prediction: Simultaneous modeling of financial metrics (Fare Amount) and operational metrics (Trip Duration).
+
+* Hybrid Modeling Strategy: Implementation of baseline models for benchmark establishment and advanced ensemble methods (XGBoost) for high-precision inference.
+
+* Production-Ready API: High-performance REST interface built with FastAPI, including Pydantic validation and Swagger documentation.
+
+* Interactive Analytics Dashboard: User-facing interface developed in Streamlit for real-time scenario testing and model explainability.
+
+Technical Standards
+Containerization: Full Docker support for development and deployment.
+
+Clean Architecture: Separation of concerns between configuration, data processing, modeling, and presentation layers.
+
+Code Quality: Type hinting, modular design, and comprehensive logging.
+
+📂 Repository Structure
 
 nyc_taxi_project/
 │
-├── README.md                    # Project documentation
-├── requirements.txt             # Python dependencies
-├── docker-compose.yml           # Docker orchestration
-├── .gitignore                   # Git ignore rules
+├── data/                        # Local data storage (GitIgnored)
+│   ├── raw/                     # Raw TLC parquet files
+│   └── processed/               # Cleaned and engineered datasets
 │
-├── data/                        # Data directory (gitignored)
-│   ├── raw/                     # Original TLC parquet files
-│   └── processed/               # Cleaned and feature-engineered data
+├── models/                      # Serialized model artifacts (GitIgnored)
+│   ├── baseline/                # Linear Regression & Decision Trees
+│   └── advanced/                # XGBoost & Random Forest models
 │
-├── src/                         # Source code
+├── src/                         # Application Source Code
+│   ├── api/                     # Backend Service
+│   │   ├── app.py               # Main application entry point
+│   │   ├── schemas.py           # Data validation models
+│   │   └── predictor.py         # Inference engine wrapper
 │   │
-│   ├── api/                     # FastAPI application
-│   │   ├── app.py               # API endpoints
-│   │   ├── schemas.py           # Pydantic models
-│   │   └── predictor.py         # Inference logic
+│   ├── config/                  # Configuration Management
+│   │   ├── settings.py          # Environment variables & constants
+│   │   └── paths.py             # Directory structure definitions
 │   │
-│   ├── config/                  # Configuration management
-│   │   └── settings.py          # Global settings (Paths, Params)
+│   ├── data/                    # ETL Pipeline Modules
+│   │   ├── download.py          # Data ingestion
+│   │   ├── preprocess.py        # Data cleaning & validation logic
+│   │   ├── features.py          # Feature engineering pipeline
+│   │   └── data_splitter.py     # Train/Test/Val stratification
 │   │
-│   ├── data/                    # Data handling modules
-│   │   ├── preprocess.py        # Cleaning logic
-│   │   └── features.py          # Feature engineering
+│   ├── evaluation/              # Model Assessment
+│   │   └── metrics.py           # Standardized regression metrics
 │   │
-│   ├── docker/                  # Dockerfiles
-│   │   ├── Dockerfile.api       # API container
-│   │   ├── Dockerfile.train     # Training container
-│   │   └── Dockerfile.ui        # Streamlit container
+│   ├── models/                  # Estimator Definitions
+│   │   ├── base_model.py        # Abstract Base Class
+│   │   ├── baseline.py          # Sklearn implementations
+│   │   └── advanced.py          # Gradient Boosting implementations
 │   │
-│   ├── evaluation/              # Metrics calculation
-│   │   └── metrics.py           # MAE, MSE, RMSE
+│   ├── pipelines/               # Execution Orchestrators
+│   │   ├── build_dataset.py     # Full ETL execution script
+│   │   └── train_model.py       # Training & Optimization script
 │   │
-│   ├── models/                  # Model definitions
-│   │   ├── baseline.py          # Linear Regression wrapper
-│   │   └── advanced.py          # XGBoost wrapper
-│   │
-│   ├── pipelines/               # Execution pipelines
-│   │   ├── build_dataset.py     # ETL Pipeline
-│   │   └── train_model.py       # Training Pipeline
+│   ├── docker/                  # Container Definitions
+│   │   ├── Dockerfile.api       # REST API Image
+│   │   ├── Dockerfile.train     # Training Job Image
+│   │   └── Dockerfile.ui        # Dashboard Image
 │   │
 │   └── streamlit_app.py         # Frontend application
 │
-└── models/                      # Trained model artifacts (gitignored)
-    ├── baseline/                # Linear Regression artifacts
-    └── advanced/                # XGBoost artifacts
+├── docker-compose.yml           # Service orchestration
+├── requirements.txt             # Python dependencies
+└── README.md                    # Project documentation
+
 🚀 Quick Start Guide
-Option A: The "Docker Way" (Recommended) 🐳
-Run the entire ecosystem (Training + API + UI) with a single command. No Python installation required.
+Option A: Containerized Deployment (Recommended)
+Deploy the entire ecosystem (Training Job + API + UI) in a single step using Docker Compose. This ensures all dependencies are isolated.
 
-```bash
 docker-compose up --build
-```
 
-Access the services:
+Service Access Points:
 
-Web App (Frontend): http://localhost:8501
-API Docs (Backend): http://localhost:8000/docs
+Frontend (Streamlit): http://localhost:8501
 
-📊 Dataset
+API Documentation (Swagger): http://localhost:8000/docs
 
-NYC TLC Trip Record Data (2022)
-We use the Yellow Taxi Trip Records from the NYC Taxi & Limousine Commission:
-Source: NYC TLC Trip Record Data
-Format: Parquet files.
-Start Date: May 2022.
-Key Features Used: VendorID, passenger_count, trip_distance, pickup_hour, day_of_week, payment_type.
+Option B: Local Development
+For developers wishing to debug or extend the code locally.
 
-💻 Installation & Local Usage
+Environment Setup
 
-If you prefer to run the project without Docker for development purposes:
 
-**1. Environment Setup**
-
-# Clone the repository
-
-```bash
-git clone [https://github.com/yourusername/nyc_taxi_project.git](https://github.com/yourusername/nyc_taxi_project.git)
-cd nyc_taxi_project
-```
-
-# Create Virtual Environment
-
-```bash
 python -m venv venv
 source venv/bin/activate  # Windows: .\venv\Scripts\Activate
-```
-
-# Install Dependencies
-
-```bash
 pip install -r requirements.txt
-```
 
 
-2. Data Preparation Pipeline
-Loads raw Parquet data, cleans outliers, and generates train_data.parquet.
-
-```bash
-python src/pipelines/build_dataset.py
-```
-
-**3. Model Training**
-
-You can choose between Baseline and Advanced models via command line arguments.
-
-Train Baseline (Linear Regression):
-
-```bash
-python src/pipelines/train_model.py --model linear
-Output: Saves to models/baseline/linear_fare.pkl
-```
-
-Train Advanced (XGBoost):
-
-```bash
-python src/pipelines/train_model.py --model xgboost
-Output: Saves to models/advanced/xgboost_fare.pkl
-```
-
-4. Running Services Locally
-Start the API:
-
-```bash
+Execute Data PipelineDownloads raw data and generates the training set.Bashpython src/pipelines/build_dataset.py
+Train ModelsTrain the advanced XGBoost model.Bashpython src/pipelines/train_model.py --model xgboost
+Run ServicesBash# Terminal 1: Start API
 uvicorn src.api.app:app --reload
-```
 
-Start the Streamlit UI:
-
-```bash
-# In a new terminal
+# Terminal 2: Start Dashboard
 streamlit run src/streamlit_app.py
-```
-
-
-🐳 Docker Deployment Details
-The project uses Docker Compose to orchestrate three containers:
-
-· train_xgboost:
-
-    Executes the training pipeline automatically upon startup.
-    Mounts a volume to persist the trained model (.pkl) to your host machine.
-    Exits automatically after training completes.
-
-· api:
-
-    Starts the FastAPI server.
-    Waits for the model file to be available (via volume sharing).
-    Exposes port 8000.
-
-· ui:
-
-    Starts the Streamlit application.
-    Communicates with the API container via the internal Docker network (http://api:8000).
-    Exposes port 8501.
-
-## 🌐 API Documentation
-
-### Endpoints
-
-#### `POST /predict`
-
-Predict fare for a single trip.
-
-**Request Body Example:**
-
-```json
-{
+📊 Data Pipeline & EngineeringThe system utilizes NYC Yellow Taxi Trip Records (May 2022).Preprocessing StrategyTemporal Cleaning: Filtering of future dates and anomalous trip durations (e.g., > 3 hours or < 1 minute).Geospatial Validation: Exclusion of coordinates outside NYC operational zones.Financial Consistency: Validation of total amounts against the sum of fare components (surcharges, taxes, tolls).Feature EngineeringThe model transforms raw transactional data into predictive features:Temporal Features: Hour of day, day of week, rush-hour indicators.Spatial Features: Pickup/Dropoff boroughs, airport proximity flags (JFK, LGA, EWR).Operational Features: Euclidean distance estimates, traffic-based speed inferences.📈 Model PerformanceThe system evaluates models using a Hold-out validation strategy (80% Train, 20% Test).MetricLinear Regression (Baseline)XGBoost (Advanced)ImprovementMAE (Mean Absolute Error)~$2.66**~$2.03**23.7%RMSE (Root Mean Squared Error)~$6.53**~$5.75**11.9%Key Insights:Non-Linearity: The XGBoost model successfully captures non-linear pricing dynamics, such as traffic congestion effects during rush hours.Minimum Fare Logic: The advanced model correctly predicts the statutory minimum fare for short trips, whereas linear models tend to underestimate.🌐 API ReferenceHealth CheckGET /healthReturns the operational status of the API and loaded models.Prediction EndpointPOST /predictGenerates fare and duration estimates for a single trip configuration.Request Payload:JSON{
   "VendorID": 1,
-  "passenger_count": 2,
-  "trip_distance": 5.0,
+  "passenger_count": 1,
+  "trip_distance": 3.5,
   "payment_type": 1,
-  "pickup_datetime": "2022-05-15 16:00:00"
+  "pickup_datetime": "2022-05-15 14:30:00"
 }
-```
-
-**Response Example:**
-JSON
-```json
-{
-  "predicted_fare": 20.66,
-  "model_version": "xgboost_fare_v1",
-  "prediction_timestamp": "2025-12-06T13:44:03",
-  "input_features": {
-    "pickup_hour": 16,
-    "pickup_day_of_week": 6,
-    "distance_euclidean": 5.0
-  }
+Response Object:JSON{
+  "predicted_fare": 15.50,
+  "predicted_duration": 18.0,
+  "model_version": "xgboost_v1.2",
+  "confidence_score": 92.5
 }
-```
-
-#### GET /health
-
-Check API health and model loading status.
-
-#### `GET /models`
-
-List available models and their metadata.
-
-### Using the Web Interface
-
-The Streamlit app provides an intuitive interface for making predictions:
-
-1. **Health Check**: Visual indicator shows if API is online (🟢 green)
-2. **Input Form**: Easy-to-use form with dropdowns and number inputs
-3. **Instant Predictions**: Click "Predict Fare" to get results
-4. **Detailed Results**: View model version, engineered features, and technical details
-5. **Example Trips**: Quick buttons to test common trip scenarios
-
-**Key Features:**
-- 🎨 Beautiful, responsive UI
-- 📊 Real-time predictions
-- 🔍 Technical details for debugging
-- 💡 Example trips for quick testing
-- ⚡ Fast and lightweight
-
-## 📈 Results
-
-**Dataset Statistics:**
-- Total records loaded: 3,588,295
-- Sample size: 100,000 rows
-- After cleaning: 96,406 rows
-- Train set: 77,124 samples (80%)
-- Test set: 19,282 samples (20%)
-
-**Linear Regression Baseline:**
-
-| Metric | Value |
-|--------|-------|
-| MAE (Mean Absolute Error) | $2.66 |
-| MSE (Mean Squared Error) | 42.62 |
-| RMSE (Root Mean Squared Error) | $6.53 |
-| Training Time | ~1.2s |
-| Model Size | 3 KB |
-
-### Interpretation
-
-- **Average Error**: The model predicts fares with an average error of **$2.66**
-- **Typical Error Range**: 68% of predictions fall within ±$6.53 of actual fare
-- **Performance**: Good baseline performance for real-time predictions
-- **Speed**: Fast training and inference suitable for production use
+🐳 Deployment StrategyThe application is containerized into three distinct services:train_xgboost: Ephemeral container. Runs the ETL and training pipeline on startup, saves artifacts to a shared volume, and terminates.api: Persistent container. Waits for model artifacts to be available, then launches the Uvicorn server.ui: Persistent container. Hosts the Streamlit frontend and communicates with the API service via the internal Docker network.
 
 
-## Model Performance Comparison
 
-Metric     Linear Regression (Baseline)     XGBoost (Advanced)
-MAE             ~$2.66,                         **~$2.03**
-RMSE            ~$6.53                          **~$5.75**
+👥 Authors & Acknowledgments
+Project Architects:
 
-**Key Insights from Deployment**
+Ricardo Walters
 
-    · XGBoost Superiority: The advanced model significantly outperformed the baseline, reducing the Mean Absolute Error (MAE) by approximately 23%.
+Alex Sanchez
 
-    · Temporal Logic: The model successfully learned time-based pricing patterns. For example, a 5-mile trip at 4:00 PM (Traffic) costs ~$20.66, while the same trip at 4:00 AM (No Traffic) drops to ~$17.97.
+Patricia Roman
 
-    · Minimum Fare: The model correctly predicts minimum fares for short trips (e.g., 0.1 miles ≈ $5.51), respecting NYC regulation pricing (base fare + surcharges).
+Ronny Moreno
 
+Fernando Wuy
 
-### Next Steps for Improvement
+Ricardo Torres
 
-Future model iterations could explore:
-- **Advanced Models**: XGBoost, Random Forest, Neural Networks  --> semicompleted
-- **More Features**: Weather data, traffic patterns, holidays
-- **Hyperparameter Tuning**: Grid search for optimal parameters
-- **Full Dataset**: Training on complete 3.5M records --> completed
-- **Feature Selection**: Identify and remove low-impact features
+Kevin Peña
 
----
-
-## 🧪 Testing
-
-Run all tests:
-
-```bash
-pytest tests/ -v
-```
-
-Run specific test suite:
-
-```bash
-pytest tests/test_api.py -v
-```
-
-With coverage:
-
-```bash
-pytest tests/ --cov=src --cov-report=html
-```
-
----
-
-## 📚 References
-
-### Papers and Articles
-
-- [Fare and Duration Prediction: A Study of New York City Taxi Rides](https://www.researchgate.net/publication/335332532_Fare_and_Duration_Prediction_A_Study_of_New_York_City_Taxi_Rides)
-- [Towards Data Science - NYC Taxi Fare Prediction](https://towardsdatascience.com/tagged/nyc-taxi)
-- [NYC Yellow Taxi Demand Prediction using ML](https://arxiv.org/abs/2004.14419)
-
-### Official Documentation
-
-- [NYC TLC Trip Record Data](https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page)
-- [Trip Record User Guide](https://www.nyc.gov/assets/tlc/downloads/pdf/trip_record_user_guide.pdf)
-- [Taxi Zone Shapefile](https://data.cityofnewyork.us/Transportation/NYC-Taxi-Zones/d3c5-ddgc)
-
-
-## 🤝 Contributing
-
-Contributions are welcome! Please follow these steps:
-
-    1. Fork the repository.
-    2. Create a feature branch (git checkout -b feature/AmazingFeature).
-    3. Commit your changes (git commit -m 'Add some AmazingFeature').
-    4. Push to the branch (git push origin feature/AmazingFeature).
-    5. Open a Pull Request.
-
-## 👥 Authors
-Ricardo Walters - Initial Project Architect
-Alex Sanchez - ML Developer Career Project 
-Patricia Roman - ML Developer Career Project 
-Ronny Moreno - ML Developer Career Project 
-Fernando Wuy - ML Developer Career Project 
-Ricardo Torres - ML Developer Career Project 
-Kevin Peña - ML Developer Career Project 
-
-## 📄 License
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-Built with ❤️ using Python, FastAPI, XGBoost, Streamlit and Docker """
+This project was developed as part of the Anyone AI Machine Learning Developer Career, demonstrating proficiency in full-stack Machine Learning Engineering.

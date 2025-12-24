@@ -13,12 +13,20 @@ from src.utils.logging import LoggerFactory
 class DataSplitter:
     def __init__(self, test_size=TEST_SIZE, val_size=VAL_SIZE, random_state=RANDOM_STATE):
         """
-            Class to handle data splitting for both fare and duration models
-            
-            Parameters:
-            test_size: float - Proportion of data to use for testing
-            val_size: float - Proportion of data to use for validation
-            random_state: int - Random seed for reproducibility
+        Orquesta la partición del conjunto de datos para el entrenamiento, validación y prueba
+        de los modelos de estimación de tarifa y duración.
+        
+        Garantiza que ambos modelos utilicen exactamente los mismos índices de filas para
+        cada subconjunto, asegurando una comparabilidad justa en las métricas de evaluación.
+
+        Parámetros:
+        -----------
+        test_size : float
+            Proporción del dataset total que se reservará exclusivamente para la evaluación final (Hold-out set).
+        val_size : float
+            Proporción del dataset total destinada al ajuste de hiperparámetros y parada temprana.
+        random_state : int
+            Semilla aleatoria para garantizar la reproducibilidad determinista de los cortes.
         """
         self.test_size = test_size
         self.val_size = val_size
@@ -31,12 +39,15 @@ class DataSplitter:
             file_output=False
         )
         
-        # Validate proportions
+        # Verifica la coherencia matemática de las proporciones de partición.
         if self.test_size + self.val_size >= 1.0:
             raise ValueError("test_size + val_size must be < 1.0")
     
     def _validate_data(self, df: pd.DataFrame) -> None:
-        """Validate input data before splitting"""
+        """
+        Ejecuta verificaciones de integridad sobre el DataFrame antes de procesarlo.
+        Asegura que existan las columnas objetivo y que el volumen de datos sea suficiente.
+        """
         required_columns = ['fare_amount', 'trip_duration_minutes']
         missing_cols = [col for col in required_columns if col not in df.columns]
         
@@ -46,20 +57,26 @@ class DataSplitter:
         if df.empty:
             raise ValueError("DataFrame is empty")
         
-        # Check for excessive missing values in targets
+        # Analiza la calidad de las variables objetivo para advertir sobre
+        # una posible pérdida excesiva de información si hay demasiados nulos.
         for col in required_columns:
             missing_pct = df[col].isna().mean()
             if missing_pct > 0.5:
                 self.logging.warning(f"High missing values in {col}: {missing_pct:.2%}")
                 
     def _prepare_features(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Prepare feature matrix by removing target variables"""
+        """
+        Genera la matriz de características (Features) eliminando las variables objetivo
+        y aquellas columnas que podrían introducir 'Data Leakage' (fugas de información).
+        """
         exclude_columns = ['fare_amount', 'trip_duration_minutes']
         
-        # Remove any columns that shouldn't be features
+        # Excluye explícitamente variables que contienen información del futuro 
+        # (como la fecha real de llegada) o componentes directos del precio final
+        # (propinas, peajes, monto total) para mantener la honestidad del modelo.
         additional_exclude = [
             'tpep_pickup_datetime', 'tpep_dropoff_datetime',
-            'total_amount', 'tip_amount', 'tolls_amount'  # These could leak info
+            'total_amount', 'tip_amount', 'tolls_amount'
         ]
         
         exclude_columns.extend([col for col in additional_exclude if col in df.columns])
@@ -70,24 +87,41 @@ class DataSplitter:
     def split_data_for_both_models(self, df: pd.DataFrame, 
                                  sample_for_feature_selection: int = 10000) -> Dict:
         """
-        Split data for both fare_amount and trip_duration_minutes models
-        Uses same split to maintain consistency in evaluation
+        Ejecuta el flujo completo de preparación: limpieza, división estratificada y
+        selección de características específica para cada objetivo.
+
+        Estrategia:
+        1. Limpia registros sin target válido.
+        2. Divide Train/Val/Test manteniendo los mismos índices para ambos problemas.
+        3. Realiza una selección de características independiente para 'fare' y 'duration',
+           ya que los predictores relevantes pueden variar entre costo y tiempo.
         
-        Parameters:
-        df: DataFrame with all features and targets
-        sample_for_feature_selection: int - Sample size for feature selection (for efficiency)
+        Parámetros:
+        -----------
+        df : pd.DataFrame
+            Conjunto de datos completo con características y objetivos.
+        sample_for_feature_selection : int
+            Número máximo de muestras a utilizar durante la etapa de selección de características
+            para optimizar el tiempo de cómputo sin sacrificar precisión estadística.
+        
+        Retorna:
+        --------
+        Dict
+            Diccionario estructurado conteniendo los datasets divididos (X_train, y_train, etc.)
+            y metadatos sobre el proceso para cada modelo.
         """
         
-        # Validate input data
+        # Ejecuta validaciones de estructura e integridad.
         self._validate_data(df)
         
-        # Remove any rows with missing targets
+        # Descarta registros que carecen de valores en las variables objetivo,
+        # ya que no aportan al aprendizaje supervisado.
         df_clean = df.dropna(subset=['fare_amount', 'trip_duration_minutes'])
         
         if len(df_clean) < len(df):
             self.logging.info(f"Removed {len(df) - len(df_clean)} rows with missing targets")
         
-        # Prepare features
+        # Separa la matriz de características de los vectores objetivo.
         X_all = self._prepare_features(df_clean)
         y_fare = df_clean['fare_amount']
         y_duration = df_clean['trip_duration_minutes']
@@ -95,14 +129,16 @@ class DataSplitter:
         logging.info(f"Total samples: {len(df_clean)}")
         logging.info(f"Total features available: {len(X_all.columns)}")
         
-        # Initial split: (train+val) vs test
+        # Fase 1: Segregación del conjunto de prueba (Test set).
+        # Se aísla primero para garantizar que nunca sea visto durante el entrenamiento.
         X_temp, X_test, y_fare_temp, y_fare_test, y_duration_temp, y_duration_test = train_test_split(
             X_all, y_fare, y_duration,
             test_size=self.test_size,
             random_state=self.random_state
         )
         
-        # Split train+val: train vs val
+        # Fase 2: División del conjunto restante en Entrenamiento y Validación.
+        # Se ajusta el tamaño relativo de validación respecto al remanente.
         val_size_adjusted = self.val_size / (1 - self.test_size)
         
         X_train, X_val, y_fare_train, y_fare_val, y_duration_train, y_duration_val = train_test_split(
@@ -113,7 +149,8 @@ class DataSplitter:
         
         self.logging.info(f"Train: {len(X_train)}, Val: {len(X_val)}, Test: {len(X_test)}")
         
-        # Feature selection using sample for efficiency
+        # Optimización: Utiliza una muestra representativa para el cálculo de importancia de features.
+        # Esto reduce drásticamente el tiempo de ejecución en algoritmos como Boruta o RFE.
         sample_size = min(sample_for_feature_selection, len(X_train))
         if sample_size < len(X_train):
             sample_idx = np.random.RandomState(self.random_state).choice(
@@ -127,16 +164,17 @@ class DataSplitter:
             y_fare_sample = y_fare_train
             y_duration_sample = y_duration_train
         
-        # Initialize feature selectors
+        # Inicializa los selectores especializados para cada variable dependiente.
         fare_selector = FeatureSelector('fare_amount')
         duration_selector = FeatureSelector('trip_duration_minutes')
         
-        # Select features for each model
+        # Ejecuta la identificación de las variables más predictivas para la tarifa.
         self.logging.info("Selecting features for fare model...")
         fare_features, fare_scores = fare_selector.select_features_for_fare(
             X_sample, y_fare_sample
         )
         
+        # Ejecuta la identificación de las variables más predictivas para la duración.
         self.logging.info("Selecting features for duration model...")
         duration_features, duration_scores = duration_selector.select_features_for_duration(
             X_sample, y_duration_sample
@@ -145,7 +183,7 @@ class DataSplitter:
         self.logging.info(f"Selected {len(fare_features)} features for fare model")
         self.logging.info(f"Selected {len(duration_features)} features for duration model")
         
-        # Create model-specific datasets
+        # Empaqueta los subconjuntos filtrados por las columnas seleccionadas para el modelo de tarifa.
         fare_data = {
             'X_train': X_train[fare_features],
             'X_val': X_val[fare_features],
@@ -158,6 +196,7 @@ class DataSplitter:
             'selector': fare_selector
         }
         
+        # Empaqueta los subconjuntos filtrados por las columnas seleccionadas para el modelo de duración.
         duration_data = {
             'X_train': X_train[duration_features],
             'X_val': X_val[duration_features],
@@ -186,7 +225,11 @@ class DataSplitter:
         }
         
     def get_feature_overlap(self, splits_dict: Dict) -> Dict:
-        """Analyze feature overlap between models"""
+        """
+        Analiza la intersección y divergencia de características entre ambos modelos.
+        Útil para diagnóstico y para entender qué variables son universalmente predictivas
+        versus cuáles son específicas para un solo objetivo.
+        """
         fare_features = set(splits_dict['fare_model']['features'])
         duration_features = set(splits_dict['duration_model']['features'])
         

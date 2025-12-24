@@ -1,3 +1,12 @@
+"""
+Módulo de Modelos Base (Baseline Models) para Regresión.
+
+Este módulo implementa algoritmos de aprendizaje supervisado clásicos que sirven como
+punto de referencia para evaluar el rendimiento de modelos más complejos.
+Incluye Regresión Lineal (para capturar relaciones lineales simples) y Árboles de Decisión
+(para capturar no-linealidades básicas sin el costo computacional de ensambles complejos).
+"""
+
 from sklearn.linear_model import LinearRegression
 from sklearn.tree import DecisionTreeRegressor
 from src.models.base_model import BaseModel
@@ -15,48 +24,70 @@ class LinearRegressionModel(BaseModel):
                  **kwargs
                  ):
         """
-            Initialize the Linear Regression Model
-            
-            Args:
-                output_path (str): Path base donde se guardará el modelo.
-                target (str): Variable objetivo ('fare_amount' o 'trip_duration_minutes').
+        Inicializa el Modelo de Regresión Lineal (Mínimos Cuadrados Ordinarios).
+        
+        Este modelo se utiliza principalmente como 'baseline' para establecer el límite inferior
+        de rendimiento esperado. Su simplicidad y alta interpretabilidad lo hacen ideal para
+        detectar si la complejidad añadida por otros modelos justifica su costo computacional.
+        
+        Parámetros:
+        -----------
+        output_path : str
+            Directorio donde se persistirá el modelo serializado.
+        target : str
+            Variable dependiente a predecir.
+        fit_intercept : bool
+            Si se debe calcular el sesgo (intercepto) del modelo.
+        positive : bool
+            Si se debe forzar que los coeficientes sean positivos (útil en contextos de precios).
+        kwargs : dict
+            Argumentos adicionales para la clase LinearRegression de sklearn.
         """
         
-        # Inicializa la clase base con el nombre del modelo, el target y el tipo 'baseline'
         super().__init__('linear_regression', target, output_path, model_type='baseline')
         
-        # Crea la instancia del modelo de scikit-learn
-        self.model = LinearRegression(fit_intercept=fit_intercept,
-                                     copy_X=copy_X,
-                                     positive=positive,
-                                     n_jobs=-1)
+        self.model = LinearRegression(
+            fit_intercept=fit_intercept,
+            copy_X=copy_X,
+            positive=positive,
+            n_jobs=-1 # Utiliza todos los núcleos de CPU disponibles para operaciones matriciales
+        )
     
     def fit(self, X: pd.DataFrame, y: pd.Series):
-        """Entrena el modelo de regresión lineal."""
+        """
+        Ajusta los coeficientes del modelo lineal a los datos de entrenamiento.
+        """
         self.model.fit(X, y)
         self.is_trained = True
         return self
     
     def predict(self, X: pd.DataFrame) -> np.ndarray:
-        """Realiza predicciones."""
+        """
+        Genera predicciones lineales basadas en los coeficientes aprendidos.
+        Aplica una función de activación ReLU (max(0, x)) a la salida para garantizar
+        que no se generen valores negativos física o económicamente imposibles.
+        """
         if not self.is_trained:
             raise ValueError("Model must be trained before making predictions")
-        # Asegura que las predicciones sean no negativas para variables como tarifa/duración
+        
         predictions = self.model.predict(X)
         return np.maximum(predictions, 0)
     
     def evaluate(self, X: pd.DataFrame, y: pd.Series):
-        """Evalúa el rendimiento del modelo y guarda las métricas."""
+        """
+        Calcula métricas de desempeño estándar comparando predicciones vs valores reales.
+        Almacena los resultados internamente para su posterior serialización.
+        """
         predictions = self.predict(X)
         self.metrics = calculate_metrics(y, predictions)
         return self.metrics
     
     def get_params(self, deep=True):
-        """Devuelve los parámetros del modelo."""
+        """Devuelve la configuración actual de hiperparámetros del estimador."""
         return self.model.get_params(deep=deep)
         
 class DecisionTreeModel(BaseModel):
-    def __init__(self, output_path:str,target: str = 'fare_amount',
+    def __init__(self, output_path:str, target: str = 'fare_amount',
                  criterion: str = 'squared_error',
                  splitter: str = 'best',
                  max_depth: int = 10,
@@ -67,16 +98,30 @@ class DecisionTreeModel(BaseModel):
                  max_features: str = 'sqrt',
                  **kwargs):
         """
-            Initialize the Decision Tree Model
-            
-            Args:
-                output_path (str): Path base donde se guardará el modelo.
-                target (str): Variable objetivo ('fare_amount' o 'trip_duration_minutes').
+        Inicializa el Modelo de Árbol de Decisión (CART).
+        
+        Configurado como un modelo base no lineal capaz de capturar interacciones simples
+        entre variables. Los hiperparámetros por defecto están restringidos (ej. max_depth=10)
+        para prevenir el sobreajuste (overfitting), un problema común en árboles individuales.
+        
+        Parámetros:
+        -----------
+        output_path : str
+            Ruta de almacenamiento del modelo.
+        target : str
+            Variable objetivo.
+        criterion : str
+            Función de pérdida para medir la calidad de una división ('squared_error' para MSE).
+        max_depth : int
+            Profundidad máxima del árbol. Limita la complejidad del modelo.
+        min_samples_split : int
+            Número mínimo de muestras necesarias para dividir un nodo interno.
+        min_samples_leaf : int
+            Número mínimo de muestras requeridas en un nodo hoja (suavizado).
         """
-        # Inicializa la clase base con el nombre del modelo, el target y el tipo 'baseline'
+        # Inicialización de la clase padre
         super().__init__('decision_tree', target, output_path, model_type='baseline')
         
-        # Crea la instancia del modelo de scikit-learn
         self.model = DecisionTreeRegressor(
             criterion=criterion,
             splitter=splitter,
@@ -86,18 +131,23 @@ class DecisionTreeModel(BaseModel):
             max_leaf_nodes=max_leaf_nodes,
             min_impurity_decrease=min_impurity_decrease,
             max_features=max_features,
-            random_state=RANDOM_STATE,
+            random_state=RANDOM_STATE, # Garantiza reproducibilidad determinista
             **kwargs
         )
     
     def fit(self, X: pd.DataFrame, y: pd.Series):
-        """Entrena el modelo de árbol de decisión."""
+        """
+        Construye el árbol de decisión a partir del conjunto de entrenamiento.
+        """
         self.model.fit(X, y)
         self.is_trained = True
         return self
     
     def predict(self, X: pd.DataFrame) -> np.ndarray:
-        """Realiza predicciones."""
+        """
+        Infiere valores objetivo para nuevas observaciones.
+        Aplica rectificación de valores negativos en la salida.
+        """
         if not self.is_trained:
             raise ValueError("Model must be trained before making predictions")
         predictions = self.model.predict(X)
@@ -105,11 +155,13 @@ class DecisionTreeModel(BaseModel):
 
     
     def evaluate(self, X: pd.DataFrame, y: pd.Series):
-        """Evalúa el rendimiento del modelo y guarda las métricas."""
+        """
+        Ejecuta la evaluación del modelo utilizando el conjunto de métricas estandarizado.
+        """
         predictions = self.predict(X)
         self.metrics = calculate_metrics(y, predictions)
         return self.metrics
     
     def get_params(self, deep=True):
-        """Devuelve los parámetros del modelo."""
+        """Recupera los parámetros de configuración del árbol."""
         return self.model.get_params(deep=deep)

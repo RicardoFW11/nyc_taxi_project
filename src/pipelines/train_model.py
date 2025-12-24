@@ -1,8 +1,18 @@
+"""
+Pipeline de Entrenamiento y Optimización de Modelos.
+
+Este script actúa como el punto de entrada principal para el ciclo de vida del aprendizaje automático.
+Soporta dos modos operativos distintos:
+1. 'train': Entrenamiento directo de modelos base con hiperparámetros predeterminados.
+2. 'optimize': Búsqueda exhaustiva de hiperparámetros óptimos (HPO) mediante Grid Search o algoritmos bayesianos.
+
+Integra la gestión de datos, entrenamiento, evaluación y persistencia de modelos en un flujo unificado.
+"""
+
 import sys
 import os
 import argparse
 import logging
-
 import pickle
 import pandas as pd
 import numpy as np
@@ -10,8 +20,7 @@ from datetime import datetime
 import joblib
 from pathlib import Path
 
-
-# Configuraciones y utilidades (asumimos que paths.py, settings.py y logging.py están correctos)
+# Importación de componentes del sistema
 from src.models.baseline import LinearRegressionModel, DecisionTreeModel
 from src.models.advanced import XGBoostModel, RandomForestModel
 from src.models.base_model import BaseModel as basemo
@@ -26,6 +35,8 @@ from src.pipelines.sklearn_hyperparameter_tuner import (LinearRegressionTuner,
                                                         SklearnHyperparameterTuner)
 
 from src.utils.logging import LoggerFactory
+
+# Configuración del logger centralizado
 logger = LoggerFactory.create_logger(
             name=LOGGER_NAME,
             log_level='DEBUG',
@@ -34,19 +45,27 @@ logger = LoggerFactory.create_logger(
         )
 
 class ModelTrainer:
+    """
+    Clase orquestadora para el entrenamiento y evaluación de modelos.
+    
+    Encapsula la lógica para cargar datos preprocesados, instanciar múltiples arquitecturas
+    de modelos, ejecutar el entrenamiento supervisado y recopilar métricas de rendimiento.
+    """
+    
     def __init__(self, data_path, models:list[basemo]):
         """
-            Initialize the ModelTrainer with paths and data structures.
-            
-            Args:
-                data_path (str): Path to the split data file.
-                models (list): List of model instances to train.
+        Inicializa el entrenador.
+
+        Args:
+            data_path (str): Ruta al archivo .pkl generado por el DataSplitter.
+            models (list): Lista de instancias de modelos (heredados de BaseModel) a entrenar.
         """
         self.data_path = Path(data_path)
         
         if not self.data_path.exists():
             raise FileNotFoundError(f"Data file not found at {self.data_path}")
         
+        # Inicialización de contenedores de datos y resultados
         self.X_train = None
         self.X_test = None
         self.X_val = None
@@ -63,7 +82,12 @@ class ModelTrainer:
         
     def load_data(self):
         """
-            Load split data from the data splitter output
+        Carga los conjuntos de datos de entrenamiento, validación y prueba desde el disco.
+        
+        Implementa una estrategia de muestreo defensivo (downsampling) para limitar
+        el tamaño del dataset de entrenamiento a 300k registros. Esto previene errores
+        de memoria (OOM - Out Of Memory) en entornos con recursos limitados (ej. contenedores Docker),
+        manteniendo una muestra estadísticamente significativa para el aprendizaje.
         """
         try:
             logger.info("Loading data from data_splitter...")
@@ -80,18 +104,13 @@ class ModelTrainer:
             self.y_val = self.data['y_val']
             self.feature_scores = self.data['feature_scores']
             
-            # ============================================================
-            # --- INICIO DEL BLOQUE DE MUESTREO (AGREGAR ESTO AQUÍ) ---
-            # ============================================================
-            MAX_SAMPLES = 300000  # 300k filas es ideal para entrenar sin morir por falta de RAM
+            # --- GESTIÓN DE MEMORIA: MUESTREO ESTRATÉGICO ---
+            MAX_SAMPLES = 300000 
             if len(self.X_train) > MAX_SAMPLES:
-                logger.info(f"⚠️ Limitando datos de {len(self.X_train)} a {MAX_SAMPLES} para evitar error de memoria (OOM)...")
+                logger.info(f"⚠️ Limitando datos de entrenamiento de {len(self.X_train)} a {MAX_SAMPLES} filas para estabilidad del sistema...")
                 self.X_train = self.X_train.sample(n=MAX_SAMPLES, random_state=RANDOM_STATE)
                 self.y_train = self.y_train.loc[self.X_train.index]
-            # ============================================================
-            # --- FIN DEL BLOQUE DE MUESTREO ---
-            # ============================================================
-
+            # ------------------------------------------------
 
             logger.info(f"✓ Data loaded successfully:")
             logger.info(f"  - X_train: {self.X_train.shape}")
@@ -109,7 +128,8 @@ class ModelTrainer:
         
     def train_model(self):
         """
-            Train all provided models
+        Itera sobre la lista de modelos configurados, ejecutando el ciclo de entrenamiento y evaluación.
+        Registra métricas en los conjuntos de entrenamiento, validación y prueba para detectar sobreajuste.
         """
         
         logger.info("Training models...")
@@ -117,11 +137,12 @@ class ModelTrainer:
         for model_instance in self.model_instances:
             logger.info(f"\tTraining {model_instance.model_type} model: {model_instance.model_name}, Target: {model_instance.target}, Samples: {self.X_train.shape[0]}, Features: {self.X_train.shape[1]}")
             
-            # train the model using your class method
+            # Fase de ajuste (Fit)
             model_instance.fit(self.X_train, self.y_train)
             
             logger.info(f"\tEvaluating {model_instance.model_type} model: {model_instance.model_name} ...")
-            # Eval the model
+            
+            # Fase de evaluación (Evaluate)
             train_metrics = model_instance.evaluate(self.X_train, self.y_train)
             test_metrics = model_instance.evaluate(self.X_test, self.y_test)
             val_metrics = model_instance.evaluate(self.X_val, self.y_val)
@@ -139,7 +160,10 @@ class ModelTrainer:
         logger.info("All models trained.")
     
     def save_trained_models(self):
-        """Save all trained models"""
+        """
+        Persiste los modelos entrenados en disco utilizando el protocolo pickle.
+        Esto permite reutilizar los modelos para inferencia sin necesidad de reentrenamiento.
+        """
         logger.info(f"\n💾 Saving models ...")
         
         saved_count = 0
@@ -147,12 +171,9 @@ class ModelTrainer:
         for model_name, results in self.model_results.items():
             try:
                 model_instance = results['model_instance']
-                
                 model_path = model_instance.save_model()
-                
                 logger.info(f"  ✓ {model_name} saved to {model_path}")
                 saved_count += 1
-                
             except Exception as e:
                 logger.error(f"  ❌ Error saving {model_name}: {e}")
         
@@ -160,7 +181,10 @@ class ModelTrainer:
         return saved_count
     
     def print_results_summary(self):
-        """Print detailed results summary"""
+        """
+        Genera y muestra un reporte tabular comparativo del rendimiento de todos los modelos entrenados.
+        Incluye una métrica de 'Overfitting' (diferencia entre R2 de Train y Test) para diagnóstico rápido.
+        """
         if not self.model_results:
             logger.error("❌ No results to display")
             return
@@ -169,7 +193,6 @@ class ModelTrainer:
         logger.info("TRAINING RESULTS SUMMARY")
         logger.info("="*80)
         
-        # Create DataFrame to display results
         summary_data = []
         for model_name, results in self.model_results.items():
             train_metrics = results['train_metrics']
@@ -179,7 +202,6 @@ class ModelTrainer:
             summary_data.append({
                 'Modelo': model_name.replace('_', ' ').title(),
                 'Train R²': f"{train_metrics.get('r2', 0):.4f}",
-                
                 'Test R²': f"{test_metrics.get('r2', 0):.4f}",
                 'Test RMSE': f"{test_metrics.get('rmse', 0):.2f}",
                 'Test MAE': f"{test_metrics.get('mae', 0):.2f}",
@@ -192,15 +214,14 @@ class ModelTrainer:
         df_summary = pd.DataFrame(summary_data)
         logger.info("\n" + df_summary.to_string(index=False))
         
-        # Identify best model
+        # Identificación del mejor modelo basado en R2 del conjunto de prueba
         best_model_name, best_model = self.get_best_model()
-        
         best_r2 = best_model['test_metrics'].get('r2', 0)
         logger.info(f"\n🏆 BEST MODEL: {best_model_name.replace('_', ' ').title()}")
         logger.info(f"  Test R²: {best_r2:.4f}")
         
     def get_best_model(self):
-        """Get the best model based on test R²"""
+        """Identifica y retorna el modelo con mejor rendimiento en el set de prueba."""
         if not self.model_results:
             return None
         
@@ -210,13 +231,18 @@ class ModelTrainer:
         return best_model_name, self.model_results[best_model_name]
     
 class HyperparameterOptimizer:
+    """
+    Clase orquestadora para el flujo de trabajo de optimización de hiperparámetros (HPO).
+    Gestiona múltiples 'tuners' (sintonizadores) para optimizar diferentes algoritmos en paralelo secuencial.
+    """
+    
     def __init__(self, data_path: str, tuners: list[SklearnHyperparameterTuner]):
         """
-        Initialize the HyperparameterOptimizer with paths and tuner instances.
-        
+        Inicializa el optimizador.
+
         Args:
-            data_path (str): Path to the split data file.
-            tuners (list): List of tuner instances to optimize.
+            data_path (str): Ruta al archivo de datos.
+            tuners (list): Lista de objetos Tuner configurados para optimizar modelos específicos.
         """
         self.data_path = Path(data_path)
         
@@ -230,7 +256,8 @@ class HyperparameterOptimizer:
         
     def optimize_models(self):
         """
-        Run hyperparameter optimization for all tuners
+        Ejecuta el proceso de optimización para cada sintonizador registrado.
+        Carga datos, ejecuta la búsqueda (Grid/Random) y limpia la memoria tras cada iteración.
         """
         logger.info("Starting hyperparameter optimization...")
         
@@ -242,16 +269,17 @@ class HyperparameterOptimizer:
             logger.info(f"  CV Folds: {tuner.cv_folds}")
             
             try:
-                # Load data into tuner
+                # Carga de datos específica para el tuner
                 tuner.load_data()
                 
-                # Run optimization
+                # Ejecución de la búsqueda de hiperparámetros
                 study = tuner.optimize()
                 study['tuner']= tuner
 
+                # Liberación de recursos para el siguiente ciclo
                 tuner.clear_data()
                 
-                # Store results
+                # Almacenamiento de resultados
                 self.optimization_results[model_name] = study
                 
                 logger.info(f"  ✓ Optimization completed")
@@ -265,20 +293,15 @@ class HyperparameterOptimizer:
         logger.info(f"\n✓ Hyperparameter optimization completed for {len(self.optimization_results)} models")
         
     def create_best_models(self):
-        """
-        Create model instances with best hyperparameters
-        """
+        """Instancia los objetos de modelo finales utilizando los hiperparámetros óptimos encontrados."""
         logger.info("\n🏗️ Creating models with best hyperparameters...")
         
         for model_name, results in self.optimization_results.items():
             try:
                 tuner = results['tuner']
                 best_model = tuner.get_best_model()
-                
                 self.best_models[model_name] = best_model
-                
                 logger.info(f"  ✓ {model_name} created with optimized parameters")
-                
             except Exception as e:
                 logger.error(f"  ❌ Failed to create {model_name}: {e}")
         
@@ -286,7 +309,8 @@ class HyperparameterOptimizer:
         
     def train_best_models(self):
         """
-        Train the best models with their optimized hyperparameters
+        Entrena los modelos optimizados finales con el conjunto de datos completo (dentro de los límites de memoria).
+        También calcula y registra la importancia de características si el modelo lo soporta.
         """
         import logging
         logger = logging.getLogger(__name__)
@@ -298,30 +322,21 @@ class HyperparameterOptimizer:
             try:
                 logger.info(f"  Training {model_name}...")
                 
-                # Get the corresponding tuner to access data
                 tuner = self.optimization_results[model_name]['tuner']
-                
-                # Load data into tuner (Recuerda: esto carga tuner.X y tuner.y)
                 tuner.load_data()
                 
-                # --- VERIFICACIÓN DE SEGURIDAD (Correcta) ---
-                if hasattr(tuner, 'X') and tuner.X is not None:
-                    cols = list(tuner.X.columns)
-                    if 'trip_duration_minutes' in cols or 'fare_amount' in cols:
-                         # Solo alertar si estamos prediciendo duration y vemos fare, o viceversa
-                        pass # Ya validamos esto antes, confiamos en build_dataset.py
-                else:
+                # Validación de carga de datos
+                if not (hasattr(tuner, 'X') and tuner.X is not None):
                     logger.error(f"❌ Error: No data loaded in tuner for {model_name}")
                     continue
-                # --------------------------------------------
 
-                # Train the model (USANDO tuner.X y tuner.y, NO X_train)
+                # Entrenamiento final
                 model.fit(tuner.X, tuner.y)
                 
-                # Feature Importance (Opcional, pero útil)
+                # Extracción de Feature Importance para interpretabilidad
                 try:
+                    # Intenta acceder al atributo feature_importances_ del modelo base o su wrapper
                     if hasattr(model, 'feature_importances_') or (hasattr(model, 'model') and hasattr(model.model, 'feature_importances_')):
-                        # Intentar obtener el modelo base si es un wrapper
                         base_model = model.model if hasattr(model, 'model') else model
                         if hasattr(base_model, 'feature_importances_'):
                             import pandas as pd
@@ -331,9 +346,9 @@ class HyperparameterOptimizer:
                             }).sort_values('Importance', ascending=False)
                             logger.info(f"\n📊 Top 5 Features ({model_name}):\n{feature_imp.head(5)}")
                 except Exception:
-                    pass # Si falla el print de features, no detener el entrenamiento
+                    pass # La interpretabilidad es secundaria, no debe bloquear el flujo
 
-                # Evaluate on the same data
+                # Evaluación final
                 metrics = model.evaluate(tuner.X, tuner.y)
                 
                 self.trained_results[model_name] = {
@@ -345,9 +360,7 @@ class HyperparameterOptimizer:
                     'method': self.optimization_results[model_name]['tuner'].method
                 }
 
-                # Liberar memoria
                 tuner.clear_data()
-                
                 logger.info(f"  ✓ {model_name} trained successfully")
                 
             except Exception as e:
@@ -358,7 +371,7 @@ class HyperparameterOptimizer:
         logger.info(f"✓ {len(self.trained_results)} models trained with optimal hyperparameters")
 
     def _convert_numpy_to_native(self, obj):
-        """Convert numpy types to native Python types for JSON serialization"""
+        """Utilería para convertir tipos NumPy a tipos nativos de Python para serialización JSON segura."""
         if isinstance(obj, np.ndarray):
             return obj.tolist()
         elif isinstance(obj, np.integer):
@@ -373,7 +386,10 @@ class HyperparameterOptimizer:
             return obj
         
     def save_optimized_models(self):
-        """Save all optimized models"""
+        """
+        Guarda los modelos optimizados y un archivo JSON adjunto con metadatos del experimento
+        (mejores parámetros, puntajes, fecha de ejecución).
+        """
         logger.info(f"\n💾 Saving optimized models...")
         
         saved_count = 0
@@ -383,10 +399,8 @@ class HyperparameterOptimizer:
                 model = results['model']
                 model_path = model.save_model()
                 
-                # Convert cv_results to JSON-serializable format
                 cv_results_serializable = self._convert_numpy_to_native(results['cv_results'])
                 
-                # Also save the optimization results
                 optimization_info = {
                     'best_params': results['best_params'],
                     'best_score': float(results['best_score']),
@@ -396,7 +410,6 @@ class HyperparameterOptimizer:
                     'model_path': str(model_path)
                 }
                 
-                # Save optimization info alongside the model
                 model_path = Path(model_path)
                 info_path = model_path.parent / f"{model_path.stem}_optimization_info.json"
                 import json
@@ -414,7 +427,7 @@ class HyperparameterOptimizer:
         return saved_count
     
     def print_optimization_summary(self):
-        """Print detailed optimization results summary"""
+        """Imprime un resumen ejecutivo de los resultados de la optimización."""
         if not self.optimization_results:
             logger.error("❌ No optimization results to display")
             return
@@ -423,11 +436,9 @@ class HyperparameterOptimizer:
         logger.info("HYPERPARAMETER OPTIMIZATION RESULTS SUMMARY")
         logger.info("="*100)
         
-        # Create DataFrame to display results
         summary_data = []
         for model_name, results in self.optimization_results.items():
             tuner = results['tuner']
-            
             summary_data.append({
                 'Model': model_name.replace('_', ' '),
                 'Target': tuner.target,
@@ -438,7 +449,6 @@ class HyperparameterOptimizer:
         df_summary = pd.DataFrame(summary_data)
         logger.info("\n" + df_summary.to_string(index=False))
         
-        # Show best parameters for each model
         logger.info("\n" + "="*100)
         logger.info("BEST HYPERPARAMETERS")
         logger.info("="*100)
@@ -449,80 +459,72 @@ class HyperparameterOptimizer:
                 logger.info(f"  {param}: {value}")
                 
     def get_best_model_overall(self):
-        """Get the overall best model across all optimizations"""
+        """Determina cuál fue el mejor modelo global basándose en el score de optimización."""
         if not self.optimization_results:
             return None
         
-        # Find best model based on optimization score
-        # Nota: Asumimos que el score de optimización (ej. Neg MSE) es la métrica de minimización.
         best_model_name = min(self.optimization_results.keys(), 
                               key=lambda x: self.optimization_results[x]['tuner'].best_score)
         
         return best_model_name, self.optimization_results[best_model_name]['tuner']
 
 def main(target_filter='both'):
-    """Main function to execute the training pipeline (without optimization)"""
+    """
+    Punto de entrada para el modo 'train' (Entrenamiento Baseline).
+    Entrena modelos con configuración por defecto para establecer una línea base de rendimiento.
+    """
     logger.info("🚀 Starting model training pipeline (Baseline Mode)")
     logger.info("="*50)
     
-    # Inicializar el listado de trainers
     trainers = []
     
-    # Define los modelos a entrenar
     if target_filter in ['fare', 'both']:
         fare_amount_trainer = ModelTrainer(FARE_MODEL_DATA_FILE, 
-                                 [LinearRegressionModel(output_path=BASELINE_MODEL_PATH, target='fare_amount'),
-                                  DecisionTreeModel(output_path=BASELINE_MODEL_PATH, target='fare_amount'),
-                                  XGBoostModel(output_path=ADVANCED_MODEL_PATH, target='fare_amount'),
-                                  RandomForestModel(output_path=ADVANCED_MODEL_PATH, target='fare_amount')
-                                 ])
+                                         [LinearRegressionModel(output_path=BASELINE_MODEL_PATH, target='fare_amount'),
+                                          DecisionTreeModel(output_path=BASELINE_MODEL_PATH, target='fare_amount'),
+                                          XGBoostModel(output_path=ADVANCED_MODEL_PATH, target='fare_amount'),
+                                          RandomForestModel(output_path=ADVANCED_MODEL_PATH, target='fare_amount')
+                                         ])
         trainers.append(('Fare Amount', fare_amount_trainer))
     
     if target_filter in ['duration', 'both']:
         trip_duration_trainer = ModelTrainer(DURATION_MODEL_DATA_FILE, 
-                                 [LinearRegressionModel(output_path=BASELINE_MODEL_PATH, target='trip_duration_minutes'),
-                                  DecisionTreeModel(output_path=BASELINE_MODEL_PATH, target='trip_duration_minutes'),
-                                  XGBoostModel(output_path=ADVANCED_MODEL_PATH, target='trip_duration_minutes'),
-                                  RandomForestModel(output_path=ADVANCED_MODEL_PATH, target='trip_duration_minutes')
-                                 ])
+                                         [LinearRegressionModel(output_path=BASELINE_MODEL_PATH, target='trip_duration_minutes'),
+                                          DecisionTreeModel(output_path=BASELINE_MODEL_PATH, target='trip_duration_minutes'),
+                                          XGBoostModel(output_path=ADVANCED_MODEL_PATH, target='trip_duration_minutes'),
+                                          RandomForestModel(output_path=ADVANCED_MODEL_PATH, target='trip_duration_minutes')
+                                         ])
         trainers.append(('Trip Duration', trip_duration_trainer))
     
     for target_name, trainer in trainers:
         logger.info(f"\n🎯 Training models for {target_name}")
-        # Load data
         if not trainer.load_data():
             logger.error(f"❌ Failed to load data for {target_name}. Skipping...")
             continue
         
-        # Train models
         trainer.train_model()
-        
-        # Show results
         trainer.print_results_summary()
-        
-        # Save models
         trainer.save_trained_models()
         
     logger.info("\n✅ Training pipeline completed successfully!")
     
 def main_optimization(target_filter='both', cv_folds=5, models='baseline'):
-    """Main function to execute the hyperparameter optimization pipeline"""
+    """
+    Punto de entrada para el modo 'optimize' (Búsqueda de Hiperparámetros).
+    Configura y ejecuta la búsqueda de Grid Search o Random Search para los modelos seleccionados.
+    """
     logger.info("🔍 Starting hyperparameter optimization pipeline (Optimization Mode)")
     logger.info("="*60)
 
-    # --- ### CAMBIO: FORZAR MUESTREO AQUÍ ANTES DE EMPEZAR ---
-    # Esto asegura que no importa qué haga el tuner por dentro, 
-    # los datos cargados desde el archivo se limiten.
     import joblib
     from src.config.paths import FARE_MODEL_DATA_FILE
 
     optimization_configs = []
     
-    # Define tuners for fare amount models
+    # Configuración de Tuners para Fare Amount
     if target_filter in ['fare', 'both']:
         fare_tuners = []
         if models in ['baseline', 'all']:
-            # Solo si el data_path existe, se añade el tuner
             if Path(FARE_MODEL_DATA_FILE).exists():
                 fare_tuners.extend([
                     LinearRegressionTuner(
@@ -563,7 +565,7 @@ def main_optimization(target_filter='both', cv_folds=5, models='baseline'):
         else:
             logger.warning("No fare models or data available for optimization.")
     
-    # Define tuners for trip duration models
+    # Configuración de Tuners para Trip Duration
     if target_filter in ['duration', 'both']:
         duration_tuners = []
         if models in ['baseline', 'all']:
@@ -608,29 +610,18 @@ def main_optimization(target_filter='both', cv_folds=5, models='baseline'):
         else:
              logger.warning("No duration models or data available for optimization.")
     
-    
-    # Run optimization for both targets
+    # Ejecución de la optimización
     for target_name, tuners in optimization_configs:
         logger.info(f"\n🎯 Optimizing models for {target_name}")
         logger.info("="*60)
         
-        # Inicializar optimizer con el data_path del primer tuner (todos apuntan al mismo)
         optimizer = HyperparameterOptimizer(tuners[0].data_path, tuners)
-        
-        # Run optimization
         optimizer.optimize_models()
-        
-        # Create and train best models
         optimizer.create_best_models()
         optimizer.train_best_models()
-        
-        # Save optimized models
         optimizer.save_optimized_models()
-
-        # Show results
         optimizer.print_optimization_summary()
         
-        # Get overall best model for this target
         best_model_name, best_tuner = optimizer.get_best_model_overall()
         logger.info(f"\n🏆 BEST {target_name.upper()} MODEL: {best_model_name}")
         logger.info(f"  Best Score (Neg MSE): {best_tuner.best_score:.4f}")
@@ -644,26 +635,26 @@ if __name__ == "__main__":
         '--mode', 
         choices=['train', 'optimize'], 
         default='train',
-        help='Choose between training baseline models (train) or optimizing hyperparameters (optimize)'
+        help='Modo de ejecución: entrenamiento estándar (train) o búsqueda de hiperparámetros (optimize)'
     )
     parser.add_argument(
         '--target',
         choices=['fare', 'duration', 'both'],
         default='both',
-        help='Choose target variable: fare_amount (fare), trip_duration_minutes (duration), or both'
+        help='Variable objetivo a modelar: tarifa (fare), duración (duration) o ambas'
     )
     parser.add_argument(
         '--cv-folds',
         type=int,
         default=5,
-        help='Number of cross-validation folds (only for optimize mode)'
+        help='Número de pliegues para validación cruzada (solo modo optimize)'
     )
 
     parser.add_argument(
         '--models',
         choices=['baseline', 'advanced', 'all'],
-        default='advanced', # CAMBIO: Se sugiere "advanced" como default para enfocarse en XGBoost y RF
-        help='Models to train (only for optimize mode) - baseline, advanced, or all'
+        default='advanced',
+        help='Familia de modelos a entrenar/optimizar (baseline=lineal/árbol, advanced=xgb/rf)'
     )
     
     args = parser.parse_args()
