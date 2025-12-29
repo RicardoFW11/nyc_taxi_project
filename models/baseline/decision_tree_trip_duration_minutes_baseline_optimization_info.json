@@ -1,0 +1,17 @@
+{
+  "best_params": {
+    "criterion": "squared_error",
+    "max_depth": 9,
+    "max_features": "sqrt",
+    "max_leaf_nodes": 30,
+    "min_impurity_decrease": 0.001,
+    "min_samples_leaf": 10,
+    "min_samples_split": 30,
+    "splitter": "best"
+  },
+  "best_score": -14.614852604144952,
+  "cv_results": {},
+  "method": "OptimizationMethod.GRID_SEARCH",
+  "optimization_date": "2025-12-22T21:17:31.079576",
+  "model_path": "/app/models/baseline/decision_tree_trip_duration_minutes_baseline.pkl"
+}

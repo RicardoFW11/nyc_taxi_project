@@ -1,0 +1,20 @@
+FROM python:3.9-slim
+
+
+COPY . /app
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+
+RUN mkdir -p models
+
+ENV PYTHONPATH=/app
+
+CMD ["python", "src/pipelines/train_model.py", "--mode", "optimize", "--target", "both", "--models", "all"]

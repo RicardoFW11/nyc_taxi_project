@@ -1,0 +1,27 @@
+FROM python:3.9-slim
+
+WORKDIR /app
+
+# Install system dependencies (required to compile some libraries)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements from the project root
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy the source code and necessary folders
+COPY src/ src/
+COPY data/ data/
+# Create the models folder if it does not exist
+RUN mkdir -p models
+
+# Set PYTHONPATH so that Python can find the modules in /app
+ENV PYTHONPATH=/app
+
+# Expose the port
+EXPOSE 8000
+
+# Command to start the API
+CMD ["uvicorn", "src.api.app:app", "--host", "0.0.0.0", "--port", "8000"]

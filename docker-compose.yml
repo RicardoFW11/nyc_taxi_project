@@ -1,0 +1,79 @@
+version: '3.8'
+
+services:
+  # -----------------------------------------------------------------------------
+  # SERVICIO 1: ORQUESTACIÓN ETL (Extract, Transform, Load)
+  # Responsable de la ingesta, limpieza y generación de datasets.
+  # Ejecuta el script build_dataset.py y finaliza su ejecución.
+  # -----------------------------------------------------------------------------
+  build_data:
+    build:
+      context: .
+      dockerfile: src/docker/Dockerfile.train
+    volumes:
+      # Montaje del directorio raíz para acceso completo al código fuente y datos
+      - .:/app
+    environment:
+      - PYTHONPATH=/app
+    # Ejecución del pipeline de construcción de datos
+    command: python /app/src/pipelines/build_dataset.py
+
+  # -----------------------------------------------------------------------------
+  # SERVICIO 2: ENTRENAMIENTO Y OPTIMIZACIÓN (HPO)
+  # Ejecuta la búsqueda de hiperparámetros y el entrenamiento de modelos.
+  # Depende de la finalización exitosa de la etapa de ETL.
+  # -----------------------------------------------------------------------------
+  train_xgboost:
+    build:
+      context: .
+      dockerfile: src/docker/Dockerfile.train
+    volumes:
+      # Persistencia de datos procesados y artefactos de modelos (.pkl)
+      - ./data:/app/data
+      - ./models:/app/models
+    environment:
+      - PYTHONPATH=/app
+    # Ejecución del pipeline en modo optimización para múltiples objetivos
+    command: bash -c "export PYTHONPATH=/app && python src/pipelines/train_model.py --mode optimize --target both --models all"
+    depends_on:
+      - build_data
+
+  # -----------------------------------------------------------------------------
+  # SERVICIO 3: API DE INFERENCIA (Backend)
+  # Expone los modelos entrenados a través de endpoints REST utilizando FastAPI.
+  # Se inicia una vez que los artefactos del modelo han sido generados.
+  # -----------------------------------------------------------------------------
+  api:
+    build:
+      context: .
+      dockerfile: src/docker/Dockerfile.api
+    ports:
+      - "8000:8000"
+    volumes:
+      # Acceso de lectura a los modelos serializados para su carga en memoria
+      - ./models:/app/models
+    environment:
+      - PYTHONPATH=/app
+      - API_URL=http://api:8000
+    depends_on:
+      - train_xgboost
+
+  # -----------------------------------------------------------------------------
+  # SERVICIO 4: INTERFAZ DE USUARIO (Frontend)
+  # Dashboard interactivo desarrollado en Streamlit para consumo de la API.
+  # Permite la visualización de métricas y la realización de predicciones.
+  # -----------------------------------------------------------------------------
+  ui:
+    build:
+      context: .
+      dockerfile: src/docker/Dockerfile.ui
+    ports:
+      - "8501:8501"
+    volumes:
+      # Montaje del código fuente para permitir hot-reloading durante desarrollo
+      - ./src:/app/src
+    environment:
+      - PYTHONPATH=/app
+      - API_URL=http://api:8000
+    depends_on:
+      - api

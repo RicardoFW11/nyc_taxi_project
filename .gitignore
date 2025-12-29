@@ -1,0 +1,170 @@
+# -----------------------------------------------------------------------------
+# CONTROL DE VERSIONES - ARCHIVO DE EXCLUSIÓN (.gitignore)
+# 
+# Define los patrones de archivos y directorios que el sistema de control de versiones
+# debe ignorar deliberadamente.
+#
+# Estrategia de exclusión:
+# 1. Artefactos de compilación y ejecución (temporales).
+# 2. Datos volumétricos (raw/processed) para evitar bloat en el repositorio.
+# 3. Credenciales y secretos (.env).
+# 4. Configuraciones específicas del entorno de desarrollo local (IDEs).
+# -----------------------------------------------------------------------------
+
+# === 1. Artefactos de Compilación y Ejecución Python ===
+# Archivos binarios intermedios, caché de bytecode y librerías dinámicas.
+__pycache__/
+*.py[codz]
+*$py.class
+*.so
+
+# === 2. Empaquetado y Distribución ===
+# Directorios generados durante la construcción de paquetes (wheels, eggs)
+# e instalación de dependencias.
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Instaladores y ejecutables congelados (PyInstaller)
+*.manifest
+*.spec
+
+# Logs de instalación de paquetes
+pip-log.txt
+pip-delete-this-directory.txt
+
+# === 3. Calidad de Código, Pruebas y Análisis Estático ===
+# Reportes de cobertura, caché de herramientas de testing (pytest, tox) 
+# y análisis de tipos (mypy, pytype).
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py.cover
+.hypothesis/
+.pytest_cache/
+cover/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+.pytype/
+.ruff_cache/
+
+# === 4. Archivos Temporales de Frameworks Web ===
+# Logs, bases de datos locales y caché específicos de Django/Flask/Scrapy.
+*.mo
+*.pot
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+instance/
+.webassets-cache
+.scrapy
+
+# === 5. Documentación y Generadores ===
+# Archivos compilados por herramientas de documentación.
+docs/_build/
+/site
+.pybuilder/
+target/
+
+# === 6. Ciencia de Datos y Notebooks ===
+# Checkpoints de Jupyter, configuraciones de IPython y salidas temporales.
+.ipynb_checkpoints
+profile_default/
+ipython_config.py
+# Marimo (Reactive Notebooks)
+marimo/_static/
+marimo/_lsp/
+__marimo__/
+
+# === 7. Gestión de Dependencias y Entornos ===
+# Archivos de bloqueo específicos que no deben compartirse si se busca
+# flexibilidad en la resolución de dependencias en distintos SO.
+#Pipfile.lock
+#uv.lock
+#poetry.lock
+#poetry.toml
+#pdm.lock
+#pdm.toml
+.pdm-python
+.pdm-build/
+#pixi.lock
+.pixi
+__pypackages__/
+
+# === 8. Entornos Virtuales y Variables de Entorno ===
+# Directorios de entornos aislados y archivos de configuración de secretos.
+# CRÍTICO: .env nunca debe subirse al repositorio.
+.env
+.envrc
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# === 9. Configuración de IDEs y Editores ===
+# Metadatos específicos del entorno de desarrollo local del usuario.
+# Spyder
+.spyderproject
+.spyproject
+# Rope
+.ropeproject
+# PyCharm / IntelliJ
+#.idea/
+# VS Code
+# .vscode/
+# Cursor AI
+.cursorignore
+.cursorindexingignore
+# Abstra
+.abstra/
+
+# === 10. Otros Artefactos y Logs ===
+# Archivos generados por tareas en segundo plano (Celery) o configuraciones locales.
+celerybeat-schedule
+celerybeat.pid
+*.sage.py
+cython_debug/
+.pypirc
+
+# === 11. Exclusiones Específicas del Proyecto UrbanFlow AI ===
+
+# Scripts de utilidad local no destinados a producción
+git.sh
+
+# Datos Volumétricos
+# Se excluyen para mantener el repositorio ligero. Los datos deben gestionarse
+# mediante DVC (Data Version Control) o almacenamiento externo (S3/GCS).
+data/raw/
+data/processed/
+data/external/
+
+# Notebooks Exploratorios
+# Se excluyen los notebooks de trabajo en progreso para mantener limpio el historial.
+# Solo los notebooks finales/limpios deberían moverse a una carpeta de reportes si es necesario.
+notebooks/

@@ -1,0 +1,16 @@
+{
+  "best_params": {
+    "bootstrap": true,
+    "criterion": "friedman_mse",
+    "max_depth": 9,
+    "max_features": "sqrt",
+    "min_samples_leaf": 5,
+    "min_samples_split": 10,
+    "n_estimators": 100
+  },
+  "best_score": -12.653505704254732,
+  "cv_results": {},
+  "method": "OptimizationMethod.GRID_SEARCH",
+  "optimization_date": "2025-12-22T21:17:31.443282",
+  "model_path": "/app/models/advanced/random_forest_trip_duration_minutes_advanced.pkl"
+}

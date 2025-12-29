@@ -1,0 +1,17 @@
+{
+  "best_params": {
+    "criterion": "friedman_mse",
+    "max_depth": 7,
+    "max_features": "sqrt",
+    "max_leaf_nodes": 30,
+    "min_impurity_decrease": 0.01,
+    "min_samples_leaf": 10,
+    "min_samples_split": 10,
+    "splitter": "random"
+  },
+  "best_score": -6.678573444913272,
+  "cv_results": {},
+  "method": "OptimizationMethod.GRID_SEARCH",
+  "optimization_date": "2025-12-22T21:02:08.875566",
+  "model_path": "/app/models/baseline/decision_tree_fare_amount_baseline.pkl"
+}
