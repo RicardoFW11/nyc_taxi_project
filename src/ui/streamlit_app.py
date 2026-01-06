@@ -11,6 +11,7 @@ import os
 import numpy as np
 import pandas as pd
 from datetime import datetime, date, time, timedelta
+from zoneinfo import ZoneInfo
 from typing import Any, Dict, List, Optional, Tuple
 
 # Librerías para visualización de datos y mapas
@@ -388,9 +389,13 @@ def show_prediction_page():
     
     st.markdown("### Parámetros del Viaje")
     c1, c2, c3 = st.columns(3)
+    
+    # Obtener fecha y hora actual en zona horaria NYC (America/New_York)
+    now = datetime.now(ZoneInfo("America/New_York"))
+    
     with c1:
-        pickup_date = st.date_input("Fecha", value=date(2022, 5, 15))
-        pickup_time = st.time_input("Hora", value=time(14, 30))
+        pickup_date = st.date_input("Fecha", value=now.date())
+        pickup_time = st.time_input("Hora (New York Time)", value=now.time().replace(second=0, microsecond=0, tzinfo=None))
     with c2:
         passenger_count = st.number_input("Pasajeros", 1, 6, 1)
         vendor_id = st.selectbox("Operador", [1, 2], format_func=lambda x: "Creative Mobile (CMT)" if x==1 else "VeriFone Inc.")
